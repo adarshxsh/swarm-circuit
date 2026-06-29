@@ -74,10 +74,32 @@ class GodotProjectParser:
                     self.parse_gdscript(full_path, rel_path)
 
         return {
-            "scene_count": len(self.scenes),
-            "script_count": len(self.scripts),
-            "scenes": list(self.scenes.keys()),
-            "scripts": list(self.scripts.keys()),
+            "metadata": {
+                "scene_count": len(self.scenes),
+                "script_count": len(self.scripts)
+            },
+            "scenes": {
+                path: [vars(node) for node in nodes] 
+                for path, nodes in self.scenes.items()
+            },
+            "connections": {
+                path: [vars(conn) for conn in conns]
+                for path, conns in self.connections.items()
+            },
+            "scripts": {
+                path: {
+                    "extends": summary.extends,
+                    "class_name": summary.class_name,
+                    "signals": summary.signals,
+                    "exports": summary.exports,
+                    "functions": {
+                        fname: vars(finfo) 
+                        for fname, finfo in summary.functions.items()
+                    },
+                    "total_lines": summary.total_lines
+                }
+                for path, summary in self.scripts.items()
+            }
         }
 
     def parse_tscn(self, file_path: str, rel_path: str) -> List[GodotNode]:

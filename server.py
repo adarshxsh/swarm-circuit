@@ -13,6 +13,7 @@ from core.planner import DeterministicPlanner
 from core.reddit_scout import TaskProposal
 from core.scheduler import DAGScheduler
 from core.worker_runtime import StatelessWorkerRuntime
+from core.memory_manager import MemoryManager
 from swarm_cli import create_mock_godot_project
 
 app = FastAPI(title="SwarmCircuit v2 API")
@@ -56,9 +57,13 @@ async def stream_live(objective: str) -> AsyncGenerator[str, None]:
             create_mock_godot_project(project_path)
 
         parser = GodotProjectParser(project_path)
+        memory = MemoryManager(project_path)
+        memory.update_architecture_graph()
+        
         planner = DeterministicPlanner()
         runtime = StatelessWorkerRuntime()
         scheduler = DAGScheduler(parser, runtime, max_workers=4)
+
 
         proposal = TaskProposal(
             proposal_id="prop_live_run",
@@ -71,9 +76,13 @@ async def stream_live(objective: str) -> AsyncGenerator[str, None]:
 
         try:
             dag = planner.generate_dag(proposal)
+            
+            # Fetch context for injection
+            project_bible = memory.read_json("project_bible.json") or {}
+            
             scheduler.execute_dag(
                 graph=dag,
-                project_summary="Godot Indie Game Project MVP",
+                project_summary=json.dumps(project_bible.get("creativeDirection", {})),
                 constraints={"targetFPS": 60, "maxAllocations": "Zero pool allocation"},
                 on_event=on_event
             )
