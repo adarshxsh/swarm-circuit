@@ -89,22 +89,49 @@ async def stream_live(objective: str) -> AsyncGenerator[str, None]:
         )
 
         try:
-            dag = planner.generate_dag(proposal)
+            from core.runtime_manager import RuntimeManager, QAAgent
             
-            # Fetch context for injection
-            project_bible = memory.read_json("project_bible.json") or {}
+            max_iterations = 3
+            current_iteration = 1
+            qa_passed = False
             
-            artifacts = scheduler.execute_dag(
-                graph=dag,
-                project_summary=json.dumps(project_bible.get("creativeDirection", {})),
-                constraints={"targetFPS": 60, "maxAllocations": "Zero pool allocation"},
-                on_event=on_event
-            )
-            
-            # Export playable web game via LLM Compiler Agent
-            from core.compiler_agent import CompilerAgent
-            compiler = CompilerAgent()
-            compiler.execute(artifacts, project_path, on_event=on_event)
+            while current_iteration <= max_iterations and not qa_passed:
+                event_queue.put({"type": "MESSAGE", "content": f"--- Starting Iteration {current_iteration} ---"})
+                
+                dag = planner.generate_dag(proposal)
+                
+                # Fetch context for injection
+                project_bible = memory.read_json("project_bible.json") or {}
+                
+                artifacts = scheduler.execute_dag(
+                    graph=dag,
+                    project_summary=json.dumps(project_bible.get("creativeDirection", {})),
+                    constraints={"targetFPS": 60, "maxAllocations": "Zero pool allocation"},
+                    on_event=on_event
+                )
+                
+                # Export playable web game via LLM Compiler Agent
+                from core.compiler_agent import CompilerAgent
+                compiler = CompilerAgent()
+                compiler.execute(artifacts, project_path, on_event=on_event)
+                
+                # Run QA Loop
+                runtime_manager = RuntimeManager()
+                # Run async playwright inside sync thread by creating a new event loop for it
+                new_loop = asyncio.new_event_loop()
+                report = new_loop.run_until_complete(runtime_manager.run_playtest(duration_sec=3, on_event=on_event))
+                new_loop.close()
+                
+                qa = QAAgent()
+                qa_result = qa.analyze(report, on_event=on_event)
+                
+                if qa_result.get("passed"):
+                    qa_passed = True
+                else:
+                    event_queue.put({"type": "MESSAGE", "content": f"QA Failed. Retrying... (Attempt {current_iteration}/{max_iterations})"})
+                    # Inject QA failure reason into the next proposal objective
+                    proposal.objective += f"\n\nQA FAILURE TO FIX: {qa_result.get('reason')}"
+                    current_iteration += 1
             
             event_queue.put({"type": "DAG_COMPLETED"})
         except Exception as e:

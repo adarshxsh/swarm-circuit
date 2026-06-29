@@ -78,16 +78,16 @@ You must synthesize them into a single, cohesive, fully runnable Javascript file
 Artifacts:
 {json.dumps(artifacts, indent=2)[:2000]} # Truncating for token limit safety
 
-Output ONLY valid Javascript code. Do not output markdown code blocks. The code must handle the game loop with requestAnimationFrame and render to a canvas with id 'gameCanvas'.
+OUTPUT ONLY RAW JAVASCRIPT. NO MARKDOWN. NO EXPLANATIONS. NO BACKTICKS. NO CHATTER.
 """
         try:
             req_body = json.dumps({
                 "model": "gemma-4-31b",
                 "messages": [
-                    {"role": "system", "content": "You are a compiler."},
+                    {"role": "system", "content": "You are a rigid compiler that only outputs executable Javascript."},
                     {"role": "user", "content": prompt}
                 ],
-                "temperature": 0.2,
+                "temperature": 0.0,
                 "max_tokens": 1500
             }).encode("utf-8")
 
@@ -104,12 +104,15 @@ Output ONLY valid Javascript code. Do not output markdown code blocks. The code 
             with urllib.request.urlopen(req, timeout=30) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 content = data["choices"][0]["message"]["content"].strip()
-                if content.startswith("```javascript"):
-                    content = content[13:]
-                if content.startswith("```js"):
-                    content = content[5:]
-                if content.endswith("```"):
-                    content = content[:-3]
+                
+                # Robust stripping of markdown blocks if the LLM disobeys
+                if "```javascript" in content:
+                    content = content.split("```javascript")[1].split("```")[0]
+                elif "```js" in content:
+                    content = content.split("```js")[1].split("```")[0]
+                elif "```" in content:
+                    content = content.split("```")[1].split("```")[0]
+                    
                 return content.strip()
         except Exception as e:
             print(f"[Compiler] API Failed, falling back to mock: {e}")
