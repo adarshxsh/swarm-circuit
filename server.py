@@ -15,9 +15,11 @@ from core.reddit_scout import TaskProposal
 from core.scheduler import DAGScheduler
 from core.worker_runtime import StatelessWorkerRuntime
 from core.memory_manager import MemoryManager
+from core.project_manager import ProjectManager
 from swarm_cli import create_mock_godot_project
 
 app = FastAPI(title="SwarmCircuit v2 API")
+project_manager = ProjectManager()
 
 app.add_middleware(
     CORSMiddleware,
@@ -58,9 +60,11 @@ async def stream_live(objective: str) -> AsyncGenerator[str, None]:
         event_queue.put(event_data)
 
     def run_pipeline():
-        project_path = os.path.abspath("./mock_godot_game")
-        if not os.path.exists(project_path):
-            create_mock_godot_project(project_path)
+        active_proj = project_manager.get_active_project()
+        project_path = active_proj.get("path")
+        if not project_path or not os.path.exists(project_path):
+            event_queue.put({"type": "ERROR", "error": f"Active project path not found: {project_path}"})
+            return
 
         parser = GodotProjectParser(project_path)
         memory = MemoryManager(project_path)
@@ -136,6 +140,37 @@ def get_golden_run():
             return json.load(f)
     except FileNotFoundError:
         return []
+
+# --- Project Management Endpoints ---
+
+@app.get("/api/projects")
+def get_projects():
+    return {
+        "projects": project_manager.get_projects(),
+        "active_project_id": project_manager.active_project_id
+    }
+
+from pydantic import BaseModel
+class CreateProjectRequest(BaseModel):
+    name: str
+
+@app.post("/api/projects")
+def create_project(req: CreateProjectRequest):
+    try:
+        proj = project_manager.create_project(req.name)
+        return {"status": "success", "project": proj}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+class SetActiveProjectRequest(BaseModel):
+    project_id: str
+
+@app.put("/api/projects/active")
+def set_active_project(req: SetActiveProjectRequest):
+    success = project_manager.set_active_project(req.project_id)
+    if success:
+        return {"status": "success"}
+    return {"status": "error", "message": "Project not found"}
 
 if __name__ == "__main__":
     import uvicorn

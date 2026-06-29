@@ -1,0 +1,11 @@
+{
+  "projects": [
+    {
+      "id": "mock_godot_game",
+      "name": "Mock Godot Game",
+      "engine": "Godot 4.x",
+      "path": "/Users/adarsh/Projects/personal/swarm-circuit/mock_godot_game"
+    }
+  ],
+  "active_project_id": "mock_godot_game"
+}

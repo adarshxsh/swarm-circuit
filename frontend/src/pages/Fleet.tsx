@@ -16,7 +16,13 @@ export default function Fleet() {
   const filteredAgents = agents.filter(a => a.name.toLowerCase().includes(searchTerm.toLowerCase()) || a.category.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
-    <div style={{ gridColumn: '2 / -1', gridRow: '1 / -1', display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg-primary)' }}>
+    <div style={{ gridColumn: '2 / -1', gridRow: '1 / -1', display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg-primary)', position: 'relative' }}>
+      {/* COMING SOON OVERLAY */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', zIndex: 100, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+        <h2 style={{ fontSize: '32px', color: 'var(--text-primary)', marginBottom: '16px' }}>Work In Progress</h2>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '16px', maxWidth: '400px', textAlign: 'center', lineHeight: '1.5' }}>This tab is a visual mockup for the SwarmCircuit vision. We are currently focusing backend development on the core Workspace Execution Graph and Memory Systems.</p>
+      </div>
+
       
       {/* Top Header */}
       <header style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -69,7 +75,7 @@ export default function Fleet() {
                 </div>
               </div>
 
-              <div style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-color)', background: 'var(--bg-primary)' }}>
+              <div style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-color)', background: 'var(--bg-primary)', position: 'relative' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--accent-color)', fontWeight: 500 }}>
                   <Zap size={14} /> {agent.engine}
                 </div>
