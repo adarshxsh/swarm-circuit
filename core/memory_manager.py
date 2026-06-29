@@ -79,6 +79,13 @@ class MemoryManager:
         # For simplicity in this iteration, we use the parser which is extremely fast on small projects.
         graph_data = parser.scan_project()
         
+        # PRESERVE AI-inferred semantic edges before overwriting
+        existing_graph = self.read_json("architecture_graph.json")
+        if existing_graph and "semantic_edges" in existing_graph:
+            graph_data["semantic_edges"] = existing_graph["semantic_edges"]
+        else:
+            graph_data["semantic_edges"] = []
+            
         self.write_json("architecture_graph.json", graph_data)
         
         # After updating the raw graph, we check if the Project Bible needs an update
@@ -106,7 +113,7 @@ class MemoryManager:
                     "All signal names must be snake_case.",
                     "No cyclical dependencies between scenes."
                 ],
-                "auto_generated_summary": f"Project contains {graph_data.get('scene_count', 0)} scenes and {graph_data.get('script_count', 0)} scripts."
+                "auto_generated_summary": f"Project contains {graph_data.get('metadata', {}).get('scene_count', 0)} scenes and {graph_data.get('metadata', {}).get('script_count', 0)} scripts."
             }
             self.write_json("project_bible.json", bible)
 

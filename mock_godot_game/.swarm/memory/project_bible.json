@@ -1,0 +1,22 @@
+{
+  "projectName": "mock_godot_game",
+  "version": "0.1.0",
+  "creativeDirection": {
+    "genre": "Unknown",
+    "coreMechanics": [],
+    "targetAudience": "Unknown"
+  },
+  "techStack": {
+    "engine": "Godot 4",
+    "language": "GDScript"
+  },
+  "invariants": [
+    "All signal names must be snake_case.",
+    "No cyclical dependencies between scenes."
+  ],
+  "auto_generated_summary": "Project contains 0 scenes and 0 scripts.",
+  "system_notes": [
+    "Movement system uses floor snapping to resolve slope jitter",
+    "Player movement uses floor snap to fix jitter"
+  ]
+}

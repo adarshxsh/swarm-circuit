@@ -1,0 +1,58 @@
+{
+  "metadata": {
+    "scene_count": 1,
+    "script_count": 1
+  },
+  "scenes": {
+    "Player.tscn": [
+      {
+        "name": "Player",
+        "node_type": "CharacterBody2D",
+        "parent": null,
+        "script_path": null,
+        "properties": {}
+      }
+    ]
+  },
+  "connections": {
+    "Player.tscn": [
+      {
+        "signal": "hit",
+        "from_node": ".",
+        "to_node": ".",
+        "method": "_on_hit"
+      }
+    ]
+  },
+  "scripts": {
+    "player.gd": {
+      "extends": "CharacterBody2D",
+      "class_name": "Player",
+      "signals": [],
+      "exports": [
+        "@export var speed: float = 250.0"
+      ],
+      "functions": {
+        "_on_hit": {
+          "name": "_on_hit",
+          "start_line": 6,
+          "end_line": 7,
+          "args": [
+            "dmg"
+          ],
+          "docstring": null
+        }
+      },
+      "total_lines": 7
+    }
+  },
+  "semantic_edges": [
+    {
+      "from": "player.gd",
+      "to": "physics_manager.gd",
+      "relation": "DEPENDS ON_SYSTEM",
+      "confidence": 0.91,
+      "source": "Gameplay Engineer artifact"
+    }
+  ]
+}
