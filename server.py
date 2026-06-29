@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import time
+from datetime import datetime
 from typing import AsyncGenerator
 from fastapi import FastAPI, Query
 from fastapi.responses import StreamingResponse
@@ -16,6 +17,7 @@ from core.scheduler import DAGScheduler
 from core.worker_runtime import StatelessWorkerRuntime
 from core.memory_manager import MemoryManager
 from core.project_manager import ProjectManager
+from core.events import WorkerCompletionEvent
 from swarm_cli import create_mock_godot_project
 
 app = FastAPI(title="SwarmCircuit v2 API")
@@ -127,6 +129,24 @@ async def stream_live(objective: str) -> AsyncGenerator[str, None]:
                 
                 if qa_result.get("passed"):
                     qa_passed = True
+                    event_queue.put({"type": "MESSAGE", "content": f"QA Passed! Updating Project Bible memory..."})
+                    
+                    # Memory Loop Update
+                    learned_mechanics = {
+                        "last_successful_build": str(datetime.now()),
+                        "qa_notes": "Playtest verified stable game loop.",
+                        "framerate_stable": True
+                    }
+                    if "learned_mechanics" not in project_bible:
+                        project_bible["learned_mechanics"] = []
+                    project_bible["learned_mechanics"].append(learned_mechanics)
+                    memory.write_json("project_bible.json", project_bible)
+                    
+                    event_queue.put(WorkerCompletionEvent(
+                        worker="Memory Agent",
+                        status="completed",
+                        message="Project Bible updated with QA verified mechanics."
+                    ).to_dict())
                 else:
                     event_queue.put({"type": "MESSAGE", "content": f"QA Failed. Retrying... (Attempt {current_iteration}/{max_iterations})"})
                     # Inject QA failure reason into the next proposal objective

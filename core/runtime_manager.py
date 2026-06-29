@@ -25,6 +25,7 @@ class RuntimeManager:
         logs = []
         errors = []
         
+        browser = None
         try:
             async with async_playwright() as p:
                 browser = await p.chromium.launch(headless=True)
@@ -68,12 +69,14 @@ class RuntimeManager:
                     
                 # Extract score if possible
                 try:
-                    score = await page.evaluate("document.getElementById('score').innerText")
+                    score_element = await page.query_selector('#score')
+                    if score_element:
+                        score = await page.evaluate("(el) => el.innerText", score_element)
+                    else:
+                        score = "Failure to find score element"
                 except:
-                    score = "Unknown"
+                    score = "Failure to find score element"
                     
-                await browser.close()
-                
                 report = {
                     "logs": logs,
                     "errors": errors,
@@ -99,7 +102,10 @@ class RuntimeManager:
                     message="Failed to execute headless browser.",
                     error=str(e)
                 ).to_dict())
-            return {"errors": [str(e)], "logs": [], "test_duration": 0}
+            return {"errors": [str(e)], "logs": logs, "test_duration": 0}
+        finally:
+            if browser:
+                await browser.close()
 
 class QAAgent:
     """Analyzes the RuntimeManager report for issues and proposes fixes."""
