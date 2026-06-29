@@ -50,6 +50,10 @@ body {
   width: 100vw;
 }
 
+.app-container.judge-mode {
+  grid-template-columns: 0px 1fr 320px;
+}
+
 /* Common Panel Styles */
 .panel {
   background-color: var(--bg-secondary);
