@@ -1,36 +1,127 @@
-import { useEffect, useState } from 'react';
-import { Play, Square, Settings, Layout, Code2, Clock, GitBranch, Terminal, FileCode2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { Play, Square, Settings, Layout, Code2, Clock, GitBranch, Terminal, FileCode2, ToggleLeft, ToggleRight, FastForward, Download, Pause } from 'lucide-react';
 import ExecutionGraph from './ExecutionGraph';
 
 export default function App() {
   const [events, setEvents] = useState<any[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState<1 | 2>(1);
   const [isLiveMode, setIsLiveMode] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   
+  // Golden Run playback state
+  const [goldenEvents, setGoldenEvents] = useState<any[]>([]);
+  const goldenIndexRef = useRef(0);
+  const playbackTimeoutRef = useRef<number | NodeJS.Timeout | null>(null);
+  const lastEventTimeRef = useRef<number>(0);
+
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (!isPlaying) {
+          startSimulation();
+        } else if (!isLiveMode) {
+          setIsPaused(p => !p);
+        }
+      } else if (e.code === 'Escape') {
+        setSelectedNodeId(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isPlaying, isLiveMode]);
+
+  const startSimulation = useCallback(() => {
+    setEvents([]);
+    setIsPlaying(true);
+    setIsPaused(false);
+    setSelectedNodeId(null);
+    goldenIndexRef.current = 0;
+    lastEventTimeRef.current = 0;
+    
+    if (!isLiveMode) {
+      // Fetch golden run if not fetched
+      if (goldenEvents.length === 0) {
+        fetch('http://localhost:8000/golden-run')
+          .then(res => res.json())
+          .then(data => {
+            setGoldenEvents(data);
+          });
+      }
+    }
+  }, [isLiveMode, goldenEvents.length]);
+
+  const stopSimulation = useCallback(() => {
+    setIsPlaying(false);
+    setIsPaused(false);
+    if (playbackTimeoutRef.current) clearTimeout(playbackTimeoutRef.current as number);
+  }, []);
+
+  // Demo Mode Playback Loop
+  useEffect(() => {
+    if (!isPlaying || isLiveMode || goldenEvents.length === 0 || isPaused) return;
+
+    const playNextEvent = () => {
+      if (goldenIndexRef.current >= goldenEvents.length) {
+        setIsPlaying(false);
+        return;
+      }
+
+      const event = goldenEvents[goldenIndexRef.current];
+      const delay = event.delay || 0;
+      const waitTime = (delay - lastEventTimeRef.current) * 1000;
+      
+      const adjustedWaitTime = Math.max(0, waitTime / playbackSpeed);
+
+      playbackTimeoutRef.current = setTimeout(() => {
+        setEvents(prev => [...prev, event]);
+        lastEventTimeRef.current = delay;
+        goldenIndexRef.current++;
+        
+        if (event.type === 'DAG_COMPLETED' || event.type === 'ERROR') {
+          setIsPlaying(false);
+        } else {
+          playNextEvent();
+        }
+      }, adjustedWaitTime);
+    };
+
+    playNextEvent();
+
+    return () => {
+      if (playbackTimeoutRef.current) clearTimeout(playbackTimeoutRef.current as number);
+    };
+  }, [isPlaying, isLiveMode, goldenEvents, isPaused, playbackSpeed]);
+
+  // Live Mode SSE Loop
   useEffect(() => {
     let eventSource: EventSource | null = null;
-    
-    if (isPlaying) {
-      const mode = isLiveMode ? 'live' : 'demo';
+    if (isPlaying && isLiveMode) {
       const objective = encodeURIComponent("Fix player movement bug");
-      eventSource = new EventSource(`http://localhost:8000/stream?mode=${mode}&objective=${objective}`);
+      eventSource = new EventSource(`http://localhost:8000/stream?mode=live&objective=${objective}`);
       
       eventSource.onmessage = (event) => {
         const data = JSON.parse(event.data);
         setEvents((prev) => [...prev, data]);
-        
         if (data.type === 'DAG_COMPLETED' || data.type === 'ERROR') {
           setIsPlaying(false);
           eventSource?.close();
         }
       };
     }
-    
-    return () => {
-      if (eventSource) eventSource.close();
-    };
+    return () => eventSource?.close();
   }, [isPlaying, isLiveMode]);
+
+  const handleExport = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(events, null, 2));
+    const dlAnchorElem = document.createElement('a');
+    dlAnchorElem.setAttribute("href", dataStr);
+    dlAnchorElem.setAttribute("download", "execution_report.json");
+    dlAnchorElem.click();
+  };
 
   // Derived state for the selected node
   const selectedNodeEvents = events.filter(e => e.node_id === selectedNodeId);
@@ -40,6 +131,8 @@ export default function App() {
   
   const status = selectedNodeCompleted ? 'SUCCESS' : selectedNodeFailed ? 'FAILED' : selectedNodeStart ? 'RUNNING' : 'PENDING';
   const role = selectedNodeStart?.role || selectedNodeCompleted?.role || selectedNodeId;
+
+  const isCompleted = events.some(e => e.type === 'DAG_COMPLETED');
 
   return (
     <div className="app-container">
@@ -55,7 +148,18 @@ export default function App() {
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
           
-          {/* Live / Demo Toggle */}
+          {/* Controls */}
+          {isPlaying && !isLiveMode && (
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button onClick={() => setIsPaused(!isPaused)} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '6px', borderRadius: '6px', cursor: 'pointer' }}>
+                {isPaused ? <Play size={14} /> : <Pause size={14} />}
+              </button>
+              <button onClick={() => setPlaybackSpeed(s => s === 1 ? 2 : 1)} style={{ background: playbackSpeed === 2 ? 'var(--accent-color)' : 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: playbackSpeed === 2 ? '#000' : 'var(--text-primary)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <FastForward size={14} /> {playbackSpeed}x
+              </button>
+            </div>
+          )}
+
           <div 
             onClick={() => !isPlaying && setIsLiveMode(!isLiveMode)}
             style={{ 
@@ -66,26 +170,29 @@ export default function App() {
             }}
           >
             {isLiveMode ? <ToggleRight size={20} color="var(--status-completed)" /> : <ToggleLeft size={20} />}
-            {isLiveMode ? 'Live Network (Cerebras API)' : 'Golden Demo (Simulated)'}
+            {isLiveMode ? 'Live Network (Cerebras)' : 'Golden Demo'}
           </div>
 
-          {/* Run Button */}
           <button 
-            onClick={() => { setEvents([]); setIsPlaying(true); setSelectedNodeId(null); }}
-            disabled={isPlaying}
+            onClick={isPlaying ? stopSimulation : startSimulation}
             style={{ 
               background: isPlaying ? 'transparent' : 'var(--text-primary)', 
               color: isPlaying ? 'var(--text-muted)' : 'var(--bg-primary)',
-              border: 'none', padding: '6px 12px', borderRadius: '6px',
+              border: isPlaying ? '1px solid var(--border-color)' : 'none', 
+              padding: '6px 12px', borderRadius: '6px',
               display: 'flex', alignItems: 'center', gap: '6px',
-              fontSize: '12px', fontWeight: 600, cursor: isPlaying ? 'default' : 'pointer'
+              fontSize: '12px', fontWeight: 600, cursor: 'pointer'
             }}
           >
-            {isPlaying ? <Square size={14} /> : <Play size={14} />}
-            {isPlaying ? 'Running...' : 'Run Simulation'}
+            {isPlaying ? <Square size={14} color="var(--status-failed)" /> : <Play size={14} />}
+            {isPlaying ? 'Stop' : 'Run Simulation'}
           </button>
-          
-          <Settings size={18} color="var(--text-secondary)" />
+
+          {isCompleted && (
+            <button onClick={handleExport} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Download size={14} /> Export Report
+            </button>
+          )}
         </div>
       </header>
 
@@ -113,22 +220,50 @@ export default function App() {
       </aside>
 
       {/* 3. Main Canvas */}
-      <main className="canvas-container">
+      <main className="canvas-container" style={{ position: 'relative' }}>
         {events.length > 0 ? (
           <ExecutionGraph events={events} onNodeClick={(id) => setSelectedNodeId(id)} />
         ) : (
           <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
-            <h2 style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>Live Execution Graph</h2>
+            <Layout size={48} color="var(--border-color)" style={{ marginBottom: '16px' }} />
+            <h2 style={{ color: 'var(--text-primary)', fontWeight: 500, fontSize: '16px' }}>Ready to build your game</h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '8px' }}>
-              Select mode and click 'Run Simulation'
+              Press <kbd style={{ background: 'var(--bg-tertiary)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>Space</kbd> or click 'Run Simulation' to start
             </p>
+          </div>
+        )}
+
+        {/* Execution Summary Overlay */}
+        {isCompleted && (
+          <div style={{ position: 'absolute', top: '24px', left: '24px', background: 'var(--bg-secondary)', border: '1px solid var(--border-highlight)', borderRadius: '8px', padding: '16px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', zIndex: 10, animation: 'slideUp 0.3s ease-out' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Terminal size={16} color="var(--accent-color)" /> Execution Summary
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', fontSize: '12px' }}>
+              <div>
+                <div style={{ color: 'var(--text-muted)' }}>Total Workers</div>
+                <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>6</div>
+              </div>
+              <div>
+                <div style={{ color: 'var(--text-muted)' }}>Artifacts</div>
+                <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>{events.filter(e => e.type === 'NODE_COMPLETED').length}</div>
+              </div>
+              <div>
+                <div style={{ color: 'var(--text-muted)' }}>Wall Time</div>
+                <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>{(events[events.length-1]?.delay || 0).toFixed(1)}s</div>
+              </div>
+              <div>
+                <div style={{ color: 'var(--text-muted)' }}>Status</div>
+                <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--status-completed)' }}>SUCCESS</div>
+              </div>
+            </div>
           </div>
         )}
       </main>
 
       {/* 4. Worker Inspector */}
       <aside className="inspector panel">
-        <div className="panel-header">Worker Inspector</div>
+        <div className="panel-header">Worker Inspector <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginLeft: 'auto', fontWeight: 'normal' }}>Press ESC to close</span></div>
         <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px', height: '100%', overflowY: 'auto' }}>
           {!selectedNodeId ? (
             <div style={{ color: 'var(--text-secondary)', fontSize: '13px', textAlign: 'center', marginTop: '40px' }}>
@@ -228,9 +363,9 @@ export default function App() {
       {/* 6. Status Bar */}
       <footer className="statusbar">
         <div style={{ display: 'flex', gap: '24px' }}>
-          <span>Status: {isPlaying ? 'Running' : 'Idle'}</span>
+          <span>Status: {isPlaying ? (isPaused ? 'Paused' : 'Running') : 'Idle'}</span>
           <span>Workers: 6</span>
-          <span style={{ color: 'var(--accent-color)' }}>Provider: {isLiveMode ? 'Live LLM Inference' : 'Hybrid (Live-Sim)'}</span>
+          <span style={{ color: 'var(--accent-color)' }}>Provider: {isLiveMode ? 'Live LLM Inference' : 'Golden Demo'}</span>
         </div>
       </footer>
     </div>

@@ -73,3 +73,10 @@ An autonomous background auditing system running on ultra-fast Cerebras inferenc
 - Technical debt discovery & signal disconnect risks.
 - Documentation validation & prompt quality auditing.
 - Memory optimization & regression detection.
+
+---
+
+## 6. Hybrid Execution Observatory (Live vs. Demo Modes)
+The frontend relies on a dual-mode streaming architecture to facilitate fast, free hackathon demos and verified live inference:
+- **Live Mode**: Executes the actual DAG via the `DAGScheduler`, querying the Cerebras API for Gemma-4-31b inference, and streams state changes over SSE (Server-Sent Events) dynamically.
+- **Demo Mode**: Disconnects from the SSE stream and directly fetches a static `/golden-run` REST endpoint containing a perfectly cached `golden_run.json`. The React frontend (`usePlayback` hook) handles iterating over the array via local timeout delays, enabling client-side features like Pause, Fast-Forward, and zero-latency execution.

@@ -103,6 +103,15 @@ async def stream_execution(mode: str = Query("demo"), objective: str = Query("Fi
     else:
         return StreamingResponse(stream_live(objective), media_type="text/event-stream")
 
+@app.get("/golden-run")
+def get_golden_run():
+    """Returns the pre-recorded execution events for client-side playback."""
+    try:
+        with open("golden_run.json", "r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return []
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)
