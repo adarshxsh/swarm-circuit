@@ -12,10 +12,12 @@ print(f"Task: {task_objective}\n")
 context_pack = engine.build_context(task_objective, token_budget=2000)
 
 print("--- Generated Context Pack ---")
-print(f"Total files/nodes included: {len(context_pack)}")
-for item in context_pack:
+print(f"Token Budget: {context_pack['token_budget']}")
+print(f"Used Tokens: {context_pack['used_tokens']}")
+print(f"Total files/nodes included: {len(context_pack['context_blocks'])}")
+
+for item in context_pack['context_blocks']:
     node = item['node']
-    score = item['score']
-    data = item['data']
-    print(f"\n[Score: {score:.1f}] Node: {node}")
-    print(json.dumps(data, indent=2))
+    score = item['priority']
+    print(f"\n[Priority: {score:.3f}] Node: {node}")
+    print(json.dumps(item, indent=2))

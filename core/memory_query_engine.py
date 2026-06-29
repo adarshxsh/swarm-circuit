@@ -26,11 +26,23 @@ class MemoryQueryEngine:
     # ----------------------------
     # ENTRY POINT
     # ----------------------------
-    def build_context(self, task: str, token_budget: int = 2000) -> List[Dict[str, Any]]:
+    def build_context(self, task: str, token_budget: int = 2000) -> Dict[str, Any]:
         seeds = self._extract_seeds(task)
         graph_nodes = self._expand_graph(seeds)
         scored = self._score_relevance(task, graph_nodes)
-        return self._pack_context(scored, token_budget)
+        
+        from core.context_optimizer import ContextOptimizer
+        optimizer = ContextOptimizer()
+        
+        raw_items = []
+        for node, score in scored:
+            raw_items.append({
+                "node": node,
+                "score": score,
+                "content": self._get_node_context(node)
+            })
+            
+        return optimizer.optimize(raw_items, token_budget)
 
     # ----------------------------
     # 1. SEED EXTRACTION
@@ -124,35 +136,7 @@ class MemoryQueryEngine:
         # Sort descending by score
         return sorted(scored, key=lambda x: x[1], reverse=True)
 
-    # ----------------------------
-    # 4. TOKEN PACKING
-    # ----------------------------
-    def _pack_context(self, scored_nodes: List[tuple], budget: int) -> List[Dict[str, Any]]:
-        context = []
-        used = 0
 
-        for node, score in scored_nodes:
-            node_data = self._get_node_context(node)
-            
-            # Very rough token estimation (word count * 1.3)
-            # Serialize to JSON string to count words
-            text = json.dumps(node_data)
-            size = int(len(text.split()) * 1.3)
-
-            if used + size > budget:
-                # If even the first item is too big, we just include it anyway to not send an empty context.
-                if len(context) > 0:
-                    break
-
-            context.append({
-                "node": node,
-                "score": score,
-                "data": node_data
-            })
-
-            used += size
-
-        return context
 
     # ----------------------------
     # HELPERS
