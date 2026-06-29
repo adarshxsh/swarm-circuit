@@ -5,3 +5,6 @@ __pycache__/
 frontend/node_modules/
 frontend/dist/
 frontend/.eslintcache
+venv/
+.venv/
+env/
