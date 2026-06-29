@@ -10,8 +10,23 @@
     <a href="#-getting-started">Getting Started</a>
   </p>
 
-  <video src="docs/assets/swarm-circuit.mp4" width="840" controls autoplay loop muted></video>
 </div>
+
+### 🎬 Studio Demonstration Video
+
+https://github.com/adarshxsh/swarm-circuit/raw/main/docs/assets/swarm-circuit.mp4
+
+<p align="center">
+  <video src="https://github.com/adarshxsh/swarm-circuit/raw/main/docs/assets/swarm-circuit.mp4" width="840" controls autoplay loop muted></video>
+</p>
+
+<p align="center">
+  <a href="https://github.com/adarshxsh/swarm-circuit/raw/main/docs/assets/swarm-circuit.mp4">
+    <img src="docs/assets/img1.png" width="840" alt="Watch SwarmCircuit Video Demo" />
+  </a>
+  <br />
+  <em>👉 <a href="https://github.com/adarshxsh/swarm-circuit/raw/main/docs/assets/swarm-circuit.mp4">Click here or the preview image above to view the full HD video walkthrough if your browser restricts embedded video autoplay.</a></em>
+</p>
 
 <br />
 
