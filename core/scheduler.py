@@ -12,6 +12,7 @@ from core.planner import ExecutionGraph, DAGNode
 from core.worker_runtime import StatelessWorkerRuntime, WorkerContext, WorkerArtifact
 from core.godot_parser import GodotProjectParser
 from core.memory_query_engine import MemoryQueryEngine
+from core.events import WorkerProgressEvent, WorkerCompletionEvent, WorkerErrorEvent
 
 class DAGScheduler:
     """Orchestrates parallel worker execution over an acyclic schedule."""
@@ -63,12 +64,12 @@ class DAGScheduler:
                 for node in ready_nodes:
                     node.status = "RUNNING"
                     if on_event:
-                        on_event({
-                            "type": "NODE_STARTED",
-                            "node_id": node.node_id,
-                            "role": node.worker_role,
-                            "timestamp": time.time()
-                        })
+                        on_event(WorkerProgressEvent(
+                            worker=node.worker_role,
+                            status="starting",
+                            message=f"Starting task: {node.objective}",
+                            progress=10
+                        ).to_dict())
 
                 # Submit ready nodes in parallel
                 future_to_node = {
@@ -95,35 +96,32 @@ class DAGScheduler:
                             node.status = "SUCCESS"
                             completed_nodes.add(node.node_id)
                             if on_event:
-                                on_event({
-                                    "type": "NODE_COMPLETED",
-                                    "node_id": node.node_id,
-                                    "role": node.worker_role,
-                                    "artifact": asdict(artifact),
-                                    "timestamp": time.time()
-                                })
+                                on_event(WorkerCompletionEvent(
+                                    worker=node.worker_role,
+                                    status="completed",
+                                    message="Task completed successfully.",
+                                    artifact=asdict(artifact)
+                                ).to_dict())
                         else:
                             node.status = "FAILED"
                             failed_nodes.add(node.node_id)
                             if on_event:
-                                on_event({
-                                    "type": "NODE_FAILED",
-                                    "node_id": node.node_id,
-                                    "role": node.worker_role,
-                                    "error": artifact.error_message,
-                                    "timestamp": time.time()
-                                })
+                                on_event(WorkerErrorEvent(
+                                    worker=node.worker_role,
+                                    status="failed",
+                                    message="Task failed.",
+                                    error=str(artifact.error_message)
+                                ).to_dict())
                     except Exception as exc:
                         node.status = "FAILED"
                         failed_nodes.add(node.node_id)
                         if on_event:
-                            on_event({
-                                "type": "NODE_FAILED",
-                                "node_id": node.node_id,
-                                "role": node.worker_role,
-                                "error": str(exc),
-                                "timestamp": time.time()
-                            })
+                            on_event(WorkerErrorEvent(
+                                worker=node.worker_role,
+                                status="failed",
+                                message="Task execution exception.",
+                                error=str(exc)
+                            ).to_dict())
 
         return artifacts
 

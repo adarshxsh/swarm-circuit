@@ -101,10 +101,10 @@ async def stream_live(objective: str) -> AsyncGenerator[str, None]:
                 on_event=on_event
             )
             
-            # Export playable web game
-            from core.game_exporter import GameExporter
-            exporter = GameExporter(os.path.abspath("."))
-            exporter.export_game(artifacts)
+            # Export playable web game via LLM Compiler Agent
+            from core.compiler_agent import CompilerAgent
+            compiler = CompilerAgent()
+            compiler.execute(artifacts, project_path, on_event=on_event)
             
             event_queue.put({"type": "DAG_COMPLETED"})
         except Exception as e:

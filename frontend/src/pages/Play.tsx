@@ -1,41 +1,59 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, MonitorPlay } from 'lucide-react';
+import { ArrowLeft, MonitorPlay, Maximize2 } from 'lucide-react';
+import { useRef } from 'react';
 
 export default function Play() {
   const { gameId } = useParams();
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  const handleFullscreen = () => {
+    if (iframeRef.current) {
+      if (iframeRef.current.requestFullscreen) {
+        iframeRef.current.requestFullscreen();
+      }
+    }
+  };
 
   return (
-    <div className="flex flex-col h-full bg-[#1e1e1e]">
-      <header className="flex items-center gap-4 p-6 border-b border-white/5 bg-[#252526]">
+    <div style={{ gridColumn: '2 / -1', gridRow: '1 / -1', display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg-primary)' }}>
+      <header style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '16px' }}>
         <Link 
-          to="/workspace"
-          className="p-2 text-white/50 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
+          to="/"
+          style={{ padding: '8px', color: 'var(--text-secondary)', background: 'var(--bg-secondary)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
         >
-          <ArrowLeft className="w-5 h-5" />
+          <ArrowLeft size={20} />
         </Link>
         <div>
-          <h1 className="text-xl font-medium text-white flex items-center gap-2">
-            <MonitorPlay className="w-5 h-5 text-green-400" />
+          <h1 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <MonitorPlay size={20} color="var(--status-completed)" />
             Game Runtime
           </h1>
-          <p className="text-sm text-white/50">Execution ID: {gameId}</p>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>Execution ID: {gameId}</p>
         </div>
       </header>
 
-      <div className="flex-1 p-8 flex items-center justify-center">
-        <div className="bg-black/50 p-4 rounded-xl border border-white/10 shadow-2xl relative">
-          <div className="absolute -top-3 left-4 bg-green-500/20 text-green-400 text-xs px-2 py-1 rounded border border-green-500/30">
+      <div style={{ flex: 1, padding: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-secondary)' }}>
+        <div className="panel" style={{ padding: '24px', borderRadius: '12px', position: 'relative', boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }}>
+          <div style={{ position: 'absolute', top: '-12px', left: '24px', background: 'var(--status-completed)', color: '#000', fontSize: '11px', fontWeight: 700, padding: '4px 8px', borderRadius: '4px', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '8px' }}>
             LIVE DEMO
           </div>
           
+          <button 
+            onClick={handleFullscreen}
+            style={{ position: 'absolute', top: '16px', right: '32px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, zIndex: 10 }}
+          >
+            <Maximize2 size={14} /> Fullscreen
+          </button>
+          
           <iframe 
+            ref={iframeRef}
             src="http://localhost:8000/dist_game/index.html" 
-            className="w-[800px] h-[400px] rounded border border-white/10 bg-[#1a1a1a]"
+            style={{ width: '1024px', height: '600px', border: '1px solid var(--border-color)', borderRadius: '8px', background: '#000', display: 'block' }}
             title="Game Engine"
             sandbox="allow-scripts allow-same-origin"
           />
           
-          <div className="mt-4 text-center text-sm text-white/50 font-mono">
+          <div style={{ marginTop: '16px', textAlign: 'center', fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
             Click inside the canvas and press SPACE to jump
           </div>
         </div>

@@ -5,7 +5,19 @@
       "name": "Mock Godot Game",
       "engine": "Godot 4.x",
       "path": "/Users/adarsh/Projects/personal/swarm-circuit/mock_godot_game"
+    },
+    {
+      "id": "first_game_",
+      "name": "First Game ",
+      "engine": "Godot 4.x",
+      "path": "/Users/adarsh/Projects/personal/swarm-circuit/first_game_"
+    },
+    {
+      "id": "flappy_bird",
+      "name": "Flappy Bird",
+      "engine": "Godot 4.x",
+      "path": "/Users/adarsh/Projects/personal/swarm-circuit/flappy_bird"
     }
   ],
-  "active_project_id": "mock_godot_game"
+  "active_project_id": "flappy_bird"
 }

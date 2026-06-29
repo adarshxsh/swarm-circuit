@@ -14,14 +14,13 @@ let animationId;
 
 // --- Entities ---
 const player = {
-    x: 50,
-    y: 300,
-    width: 30,
-    height: 30,
+    x: 100,
+    y: 200,
+    width: 24,
+    height: 24,
     velocity_y: 0,
-    gravity: 0.6,
-    jump_strength: -12,
-    isGrounded: true,
+    gravity: 0.5,
+    jump_strength: -8,
     
     update() {
         if (!CAPABILITIES.has_physics) return;
@@ -29,78 +28,83 @@ const player = {
         this.velocity_y += this.gravity;
         this.y += this.velocity_y;
         
-        // Floor collision
-        if (this.y >= 370 - this.height) {
-            this.y = 370 - this.height;
-            this.velocity_y = 0;
-            this.isGrounded = true;
+        // Ceiling and Floor collision (Game Over)
+        if (this.y >= canvas.height - this.height || this.y <= 0) {
+            gameOver();
         }
     },
     
     jump() {
-        if (this.isGrounded) {
-            this.velocity_y = this.jump_strength;
-            this.isGrounded = false;
-        }
+        this.velocity_y = this.jump_strength;
     },
     
     render() {
         if (!CAPABILITIES.has_player) return;
-        ctx.fillStyle = '#4ade80';
-        ctx.fillRect(this.x, this.y, this.width, this.height);
+        ctx.fillStyle = '#facc15'; // yellow bird
+        ctx.beginPath();
+        ctx.arc(this.x + this.width/2, this.y + this.height/2, this.width/2, 0, Math.PI * 2);
+        ctx.fill();
     }
 };
 
-const obstacles = [];
-const OBSTACLE_SPEED = 5;
+const pipes = [];
+const PIPE_SPEED = 3;
+const PIPE_WIDTH = 50;
+const GAP_SIZE = 120;
 
-function spawnObstacle() {
+function spawnPipe() {
     if (!CAPABILITIES.has_obstacles) return;
     
-    obstacles.push({
+    const minPipeHeight = 50;
+    const maxPipeHeight = canvas.height - GAP_SIZE - minPipeHeight;
+    const topPipeHeight = Math.floor(Math.random() * (maxPipeHeight - minPipeHeight + 1) + minPipeHeight);
+    
+    pipes.push({
         x: canvas.width,
-        y: 340, // Base y
-        width: 20 + Math.random() * 20,
-        height: 30 + Math.random() * 40
+        topHeight: topPipeHeight,
+        bottomY: topPipeHeight + GAP_SIZE,
+        bottomHeight: canvas.height - (topPipeHeight + GAP_SIZE),
+        passed: false
     });
 }
 
-function updateObstacles() {
-    for (let i = obstacles.length - 1; i >= 0; i--) {
-        obstacles[i].x -= OBSTACLE_SPEED;
+function updatePipes() {
+    for (let i = pipes.length - 1; i >= 0; i--) {
+        pipes[i].x -= PIPE_SPEED;
         
         // Collision Detection
         if (
-            player.x < obstacles[i].x + obstacles[i].width &&
-            player.x + player.width > obstacles[i].x &&
-            player.y < obstacles[i].y + obstacles[i].height &&
-            player.y + player.height > obstacles[i].y
+            player.x < pipes[i].x + PIPE_WIDTH &&
+            player.x + player.width > pipes[i].x &&
+            (player.y < pipes[i].topHeight || player.y + player.height > pipes[i].bottomY)
         ) {
             gameOver();
         }
         
-        // Remove offscreen
-        if (obstacles[i].x + obstacles[i].width < 0) {
-            obstacles.splice(i, 1);
+        // Score Detection
+        if (pipes[i].x + PIPE_WIDTH < player.x && !pipes[i].passed) {
+            pipes[i].passed = true;
             if (CAPABILITIES.has_score) {
                 score++;
                 scoreEl.innerText = score;
             }
         }
+        
+        // Remove offscreen
+        if (pipes[i].x + PIPE_WIDTH < 0) {
+            pipes.splice(i, 1);
+        }
     }
 }
 
-function renderObstacles() {
-    ctx.fillStyle = '#ef4444';
-    for (let obs of obstacles) {
-        // Ensure obstacles sit on the floor
-        ctx.fillRect(obs.x, 370 - obs.height, obs.width, obs.height);
+function renderPipes() {
+    ctx.fillStyle = '#4ade80';
+    for (let pipe of pipes) {
+        // Top pipe
+        ctx.fillRect(pipe.x, 0, PIPE_WIDTH, pipe.topHeight);
+        // Bottom pipe
+        ctx.fillRect(pipe.x, pipe.bottomY, PIPE_WIDTH, pipe.bottomHeight);
     }
-}
-
-function drawFloor() {
-    ctx.fillStyle = '#666';
-    ctx.fillRect(0, 370, canvas.width, 30);
 }
 
 // --- Core Loop ---
@@ -108,13 +112,13 @@ function init() {
     score = 0;
     scoreEl.innerText = score;
     frames = 0;
-    obstacles.length = 0;
-    player.y = 370 - player.height;
+    pipes.length = 0;
+    player.y = 200;
     player.velocity_y = 0;
     isPlaying = true;
     
     // Auto jump once to show it's alive
-    setTimeout(() => player.jump(), 500);
+    setTimeout(() => player.jump(), 200);
     
     loop();
 }
@@ -127,15 +131,14 @@ function loop() {
     // Systems
     player.update();
     
-    if (frames % 90 === 0) {
-        spawnObstacle();
+    if (frames % 100 === 0) {
+        spawnPipe();
     }
-    updateObstacles();
+    updatePipes();
     
     // Rendering
-    drawFloor();
     player.render();
-    renderObstacles();
+    renderPipes();
     
     frames++;
     animationId = requestAnimationFrame(loop);
