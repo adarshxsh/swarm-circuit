@@ -6,6 +6,7 @@ from typing import AsyncGenerator
 from fastapi import FastAPI, Query
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from queue import Queue
 
 from core.godot_parser import GodotProjectParser
@@ -25,6 +26,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+import os
+# Ensure dist_game exists before mounting
+os.makedirs(os.path.abspath("./dist_game"), exist_ok=True)
+app.mount("/dist_game", StaticFiles(directory="dist_game"), name="dist_game")
 
 async def stream_demo() -> AsyncGenerator[str, None]:
     """Streams the pre-recorded golden run for flawless demos."""
@@ -84,12 +90,18 @@ async def stream_live(objective: str) -> AsyncGenerator[str, None]:
             # Fetch context for injection
             project_bible = memory.read_json("project_bible.json") or {}
             
-            scheduler.execute_dag(
+            artifacts = scheduler.execute_dag(
                 graph=dag,
                 project_summary=json.dumps(project_bible.get("creativeDirection", {})),
                 constraints={"targetFPS": 60, "maxAllocations": "Zero pool allocation"},
                 on_event=on_event
             )
+            
+            # Export playable web game
+            from core.game_exporter import GameExporter
+            exporter = GameExporter(os.path.abspath("."))
+            exporter.export_game(artifacts)
+            
             event_queue.put({"type": "DAG_COMPLETED"})
         except Exception as e:
             event_queue.put({"type": "ERROR", "error": str(e)})

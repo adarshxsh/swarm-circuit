@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { Play, Square, Settings, Layout, Code2, Clock, GitBranch, Terminal, FileCode2, ToggleLeft, ToggleRight, FastForward, Download, Pause, Plus, Bug, Zap, Wand2, BookOpen, Presentation } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
+import { Play, Square, Settings, Layout, Code2, Clock, GitBranch, Terminal, FileCode2, ToggleLeft, ToggleRight, FastForward, Download, Pause, Plus, Bug, Zap, Wand2, BookOpen, Presentation, MonitorPlay } from 'lucide-react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import ExecutionGraph from '../ExecutionGraph';
 
 export default function Workspace() {
@@ -12,6 +12,7 @@ export default function Workspace() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const isJudgeMode = searchParams.get('judge') === 'true';
 
   const [showComposer, setShowComposer] = useState(false);
@@ -211,9 +212,14 @@ export default function Workspace() {
           </button>
 
           {isCompleted && (
-            <button onClick={handleExport} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Download size={14} /> Export Report
-            </button>
+            <>
+              <button onClick={() => navigate('/play/demo_run')} style={{ background: 'var(--status-completed)', border: 'none', color: '#000', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <MonitorPlay size={14} /> Play Web Demo
+              </button>
+              <button onClick={handleExport} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Download size={14} /> Export Report
+              </button>
+            </>
           )}
         </div>
       </header>

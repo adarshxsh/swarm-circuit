@@ -6,6 +6,7 @@ import Fleet from './pages/Fleet';
 import Artifacts from './pages/Artifacts';
 import History from './pages/History';
 import MergeCenter from './pages/MergeCenter';
+import Play from './pages/Play';
 
 function AppLayout() {
   const location = useLocation();
@@ -57,6 +58,7 @@ function AppLayout() {
           <Route path="/artifacts" element={<Artifacts />} />
           <Route path="/merge" element={<MergeCenter />} />
           <Route path="/history" element={<History />} />
+          <Route path="/play/:gameId" element={<Play />} />
         </Routes>
       </div>
     </div>
