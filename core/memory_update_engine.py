@@ -28,15 +28,24 @@ class MemoryUpdateEngine:
         exec_meta = artifact.get("executionMeta", {})
         confidence = exec_meta.get("confidence", 0.8)  # default if missing
 
-        # Advanced Upgrade: Confidence Gating
+        # Advanced Upgrade: Confidence Gating Split
         if confidence < 0.6:
-            print(f"[MemoryUpdateEngine] Skipping update due to low confidence ({confidence}).")
+            print(f"[MemoryUpdateEngine] Discarding update due to low confidence ({confidence}).")
             return
+        
+        needs_review = (0.6 <= confidence < 0.8)
+        
+        # Get targetFile for hard deduplication rules
+        target_file = None
+        for deliv in artifact.get("deliverables", []):
+            if deliv.get("targetFile"):
+                target_file = deliv.get("targetFile")
+                break
 
-        ops = self._normalize(memory_updates, confidence)
-        self._apply_patch(ops, artifact.get("producerRole", "Unknown Worker"))
+        ops = self._normalize(memory_updates, confidence, target_file)
+        self._apply_patch(ops, artifact.get("producerRole", "Unknown Worker"), needs_review)
 
-    def _normalize(self, memory_updates: Dict[str, Any], confidence: float) -> List[MemoryOp]:
+    def _normalize(self, memory_updates: Dict[str, Any], confidence: float, target_file: str) -> List[MemoryOp]:
         """Converts raw string instructions into structured MemoryOps."""
         ops = []
         
@@ -65,7 +74,7 @@ class MemoryUpdateEngine:
             ops.append(MemoryOp(
                 type="UPDATE_BIBLE",
                 target="project_bible",
-                payload={"text": update},
+                payload={"text": update, "target_file": target_file},
                 confidence=confidence
             ))
             
@@ -101,7 +110,7 @@ class MemoryUpdateEngine:
         score = (0.5 * keyword_overlap) + (0.3 * entity_overlap) + (0.2 * verb_overlap)
         return score
 
-    def _apply_patch(self, ops: List[MemoryOp], source_worker: str):
+    def _apply_patch(self, ops: List[MemoryOp], source_worker: str, needs_review: bool):
         """Applies structured MemoryOps to the JSON schemas and persists them."""
         bible_dirty = False
         graph_dirty = False
@@ -120,8 +129,18 @@ class MemoryUpdateEngine:
         for op in ops:
             if op.type == "ADD_EDGE":
                 edge = op.payload
-                # Check for exact duplicate edge
-                is_dup = any(e.get("from") == edge["from"] and e.get("to") == edge["to"] for e in graph["semantic_edges"])
+                # Duplicate edge collapse & confidence aggregation
+                is_dup = False
+                for e in graph["semantic_edges"]:
+                    if e.get("from") == edge["from"] and e.get("to") == edge["to"]:
+                        is_dup = True
+                        # Confidence aggregation per edge
+                        e["confidence"] = max(e.get("confidence", 0), op.confidence)
+                        if source_worker not in e.get("source", ""):
+                            e["source"] += f", {source_worker} artifact"
+                        graph_dirty = True
+                        break
+                        
                 if not is_dup:
                     graph["semantic_edges"].append({
                         "from": edge["from"],
@@ -134,18 +153,49 @@ class MemoryUpdateEngine:
                     
             elif op.type == "UPDATE_BIBLE":
                 new_text = op.payload["text"]
+                target_file = op.payload.get("target_file")
                 should_add = True
                 
+                # Hard rule: If same targetFile + same system -> auto merge candidate
+                # We'll boost the score if the target_file exists in both
+                
+                if needs_review:
+                    # Risk 2 Fix: Split storage for review queue
+                    review_entry = {
+                        "op": "UPDATE_BIBLE",
+                        "text": new_text,
+                        "target_file": target_file,
+                        "confidence": op.confidence,
+                        "source": source_worker
+                    }
+                    self.memory.log_execution(review_entry) # Using log_execution as review queue equivalent for now
+                    # Or ideally self.memory._atomic_append_jsonl(os.path.join(self.memory.memory_dir, "memory_review_queue.jsonl"), review_entry)
+                    import os
+                    review_path = os.path.join(self.memory.memory_dir, "memory_review_queue.jsonl")
+                    self.memory._atomic_append_jsonl(review_path, review_entry)
+                    print(f"[MemoryUpdateEngine] Sent update to memory_review_queue.jsonl due to confidence {op.confidence}")
+                    continue
+
                 # Deduplication logic
                 for idx, existing_note in enumerate(bible["system_notes"]):
                     score = self._calculate_similarity(new_text, existing_note)
+                    
+                    # Apply hard rule if file matches
+                    if target_file and target_file in new_text and target_file in existing_note:
+                        score += 0.3 # Boost score significantly
+
                     if score >= 0.75:
                         # Auto-merge / ignore duplicate
                         should_add = False
                         break
                     elif score >= 0.60:
-                        # Flag for review (For MVP, we just append a [REVIEW] tag)
-                        new_text = f"[REVIEW REQUIRED - SIMILARITY {score:.2f}] {new_text}"
+                        # Flag for review instead of polluting
+                        should_add = False
+                        review_path = os.path.join(self.memory.memory_dir, "memory_review_queue.jsonl")
+                        self.memory._atomic_append_jsonl(review_path, {
+                            "text": new_text,
+                            "reason": f"Similarity score {score:.2f} requires manual merge with existing note."
+                        })
                         break
                 
                 if should_add:

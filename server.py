@@ -60,9 +60,13 @@ async def stream_live(objective: str) -> AsyncGenerator[str, None]:
         memory = MemoryManager(project_path)
         memory.update_architecture_graph()
         
+        # New Query Engine
+        from core.memory_query_engine import MemoryQueryEngine
+        query_engine = MemoryQueryEngine(memory.memory_dir)
+        
         planner = DeterministicPlanner()
         runtime = StatelessWorkerRuntime()
-        scheduler = DAGScheduler(parser, runtime, max_workers=4)
+        scheduler = DAGScheduler(parser, runtime, query_engine, max_workers=4)
 
 
         proposal = TaskProposal(

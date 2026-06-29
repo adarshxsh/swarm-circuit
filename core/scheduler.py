@@ -11,14 +11,15 @@ from typing import Dict, List, Set, Any, Callable, Optional
 from core.planner import ExecutionGraph, DAGNode
 from core.worker_runtime import StatelessWorkerRuntime, WorkerContext, WorkerArtifact
 from core.godot_parser import GodotProjectParser
-
+from core.memory_query_engine import MemoryQueryEngine
 
 class DAGScheduler:
     """Orchestrates parallel worker execution over an acyclic schedule."""
 
-    def __init__(self, project_parser: GodotProjectParser, runtime: StatelessWorkerRuntime, max_workers: int = 4):
+    def __init__(self, project_parser: GodotProjectParser, runtime: StatelessWorkerRuntime, memory_query_engine: MemoryQueryEngine, max_workers: int = 4):
         self.project_parser = project_parser
         self.runtime = runtime
+        self.memory_query_engine = memory_query_engine
         self.max_workers = max_workers
 
     def execute_dag(
@@ -137,10 +138,8 @@ class DAGScheduler:
         retry_base_delay_sec: float
     ) -> WorkerArtifact:
         """Executes a single node with exponential backoff on transient errors."""
-        # Build context slices from parsed Godot project
-        relevant_files = []
-        for script_path in self.project_parser.scripts:
-            relevant_files.append(self.project_parser.get_context_slice(script_path))
+        # Build targeted context slice via MemoryQueryEngine instead of dumping everything
+        relevant_files = self.memory_query_engine.build_context(node.objective, token_budget=2000)
 
         # Collect upstream artifacts
         upstream = []
