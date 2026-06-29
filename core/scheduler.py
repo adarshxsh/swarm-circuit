@@ -47,8 +47,14 @@ class DAGScheduler:
                 "nodes": {n_id: n.worker_role for n_id, n in graph.nodes.items()}
             })
 
+        from core.state import global_state
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             while len(completed_nodes) + len(failed_nodes) < len(graph.nodes):
+                if global_state.is_paused:
+                    time.sleep(1)
+                    continue
+
                 ready_nodes = graph.get_ready_nodes(completed_nodes)
 
                 if not ready_nodes:
@@ -113,6 +119,8 @@ class DAGScheduler:
                                     error=str(artifact.error_message)
                                 ).to_dict())
                     except Exception as exc:
+                        import traceback
+                        traceback.print_exc()
                         node.status = "FAILED"
                         failed_nodes.add(node.node_id)
                         if on_event:
@@ -122,6 +130,21 @@ class DAGScheduler:
                                 message="Task execution exception.",
                                 error=str(exc)
                             ).to_dict())
+
+                # Small inter-batch delay to respect API rate limits and allow
+                # essential reviewers' insights to fully settle before next wave.
+                time.sleep(0.8)
+
+        # After DAG completes, emit IDLE event for every node so the
+        # frontend keeps them visible in the graph but shows them as "done waiting".
+        for n_id, node in graph.nodes.items():
+            if on_event:
+                on_event({
+                    "type": "NODE_IDLE",
+                    "worker": node.worker_role,
+                    "status": "idle",
+                    "message": "Standing by."
+                })
 
         return artifacts
 
@@ -138,6 +161,12 @@ class DAGScheduler:
         """Executes a single node with exponential backoff on transient errors."""
         # Build targeted context slice via MemoryQueryEngine instead of dumping everything
         relevant_files = self.memory_query_engine.build_context(node.objective, token_budget=2000)
+
+        from core.state import global_state
+        user_messages = global_state.get_and_clear_chat_messages(node.node_id)
+        if user_messages:
+            constraints = dict(constraints)
+            constraints["USER_INSTRUCTION"] = "CRITICAL OVERRIDE FROM USER: " + " ".join(user_messages)
 
         # Collect upstream artifacts
         upstream = []

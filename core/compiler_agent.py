@@ -75,8 +75,15 @@ class CompilerAgent:
 You have been given the following Game Engineering outputs.
 You must synthesize them into a single, cohesive, fully runnable Javascript file using HTML5 Canvas.
 
+CRITICAL RENDERING RULES (non-negotiable):
+1. NEVER hardcode canvas dimensions like `canvas.width = 1024`. The canvas is already sized to window by the bootstrap. Just use `canvas.width` and `canvas.height` everywhere.
+2. NEVER set `canvas.style.width/height`. Let the bootstrap handle it.
+3. ALL positions, sizes, velocities must use fractions of `canvas.width` / `canvas.height` (e.g., bird x = canvas.width * 0.2, gap = canvas.height * 0.3).
+4. On window resize, the game must call `onResize` or re-read `canvas.width`/`canvas.height` to reposition entities.
+5. Use `requestAnimationFrame` for the game loop.
+
 Artifacts:
-{json.dumps(artifacts, indent=2)[:2000]} # Truncating for token limit safety
+{json.dumps(artifacts, default=lambda o: getattr(o, '__dict__', str(o)), indent=2)[:2000]}
 
 OUTPUT ONLY RAW JAVASCRIPT. NO MARKDOWN. NO EXPLANATIONS. NO BACKTICKS. NO CHATTER.
 """
@@ -100,6 +107,9 @@ OUTPUT ONLY RAW JAVASCRIPT. NO MARKDOWN. NO EXPLANATIONS. NO BACKTICKS. NO CHATT
                     "User-Agent": "SwarmCircuit"
                 }
             )
+
+            from core.state import global_state
+            global_state.wait_for_rate_limit()
 
             with urllib.request.urlopen(req, timeout=30) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
@@ -140,15 +150,43 @@ ctx.fillText('(Compiler Agent invoked fallback mock)', canvas.width/2, canvas.he
 <html>
 <head>
     <title>SwarmCircuit Build</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { margin: 0; padding: 0; background-color: #000; color: #fff; font-family: monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;}
-        #gameCanvas { display: block; background: #222; }
-        #ui-layer { position: absolute; top: 10px; left: 10px; font-size: 20px; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a0a; }
+        #gameCanvas {
+            display: block;
+            position: absolute;
+            top: 0; left: 0;
+        }
+        #ui-layer {
+            position: absolute;
+            top: 10px; left: 10px;
+            font-size: clamp(12px, 2vw, 20px);
+            color: #fff;
+            font-family: monospace;
+            z-index: 10;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
     <div id="ui-layer">Score: <span id="score">0</span></div>
-    <canvas id="gameCanvas" width="1024" height="600"></canvas>
+    <canvas id="gameCanvas"></canvas>
+    <script>
+        // --- SwarmCircuit Responsive Canvas Bootstrap ---
+        const canvas = document.getElementById('gameCanvas');
+        
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            if (typeof onResize === 'function') onResize();
+        }
+        
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+    </script>
     <script src="game.js"></script>
 </body>
 </html>"""

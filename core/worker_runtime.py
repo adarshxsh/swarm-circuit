@@ -206,6 +206,9 @@ Context Payload:
             }
         )
 
+        from core.state import global_state
+        global_state.wait_for_rate_limit()
+
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             content = data["choices"][0]["message"]["content"].strip()

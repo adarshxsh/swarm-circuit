@@ -18,5 +18,22 @@
   "system_notes": [
     "Movement system uses floor snapping to resolve slope jitter",
     "Player movement uses floor snap to fix jitter"
+  ],
+  "learned_mechanics": [
+    {
+      "last_successful_build": "2026-06-29 21:12:45.995920",
+      "qa_notes": "Playtest verified stable game loop.",
+      "framerate_stable": true
+    },
+    {
+      "last_successful_build": "2026-06-29 21:14:55.634863",
+      "qa_notes": "Playtest verified stable game loop.",
+      "framerate_stable": true
+    },
+    {
+      "last_successful_build": "2026-06-29 21:17:21.131081",
+      "qa_notes": "Playtest verified stable game loop.",
+      "framerate_stable": true
+    }
   ]
 }

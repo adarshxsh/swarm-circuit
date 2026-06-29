@@ -32,9 +32,11 @@ app.add_middleware(
 )
 
 import os
-# Ensure dist_game exists before mounting
+# Ensure dist_game dirs exist before mounting
 os.makedirs(os.path.abspath("./dist_game"), exist_ok=True)
-app.mount("/dist_game", StaticFiles(directory="dist_game"), name="dist_game")
+os.makedirs(os.path.abspath("./dist_game/catalyst"), exist_ok=True)
+# Mount the entire dist_game tree — subdirs (catalyst/, etc.) are served automatically
+app.mount("/dist_game", StaticFiles(directory="dist_game", html=True), name="dist_game")
 
 async def stream_demo() -> AsyncGenerator[str, None]:
     """Streams the pre-recorded golden run for flawless demos."""
@@ -108,7 +110,11 @@ async def stream_live(objective: str) -> AsyncGenerator[str, None]:
                 artifacts = scheduler.execute_dag(
                     graph=dag,
                     project_summary=json.dumps(project_bible.get("creativeDirection", {})),
-                    constraints={"targetFPS": 60, "maxAllocations": "Zero pool allocation"},
+                    constraints={
+                        "targetFPS": 60, 
+                        "maxAllocations": "Zero pool allocation",
+                        "learned_mechanics": json.dumps(project_bible.get("learned_mechanics", []))
+                    },
                     on_event=on_event
                 )
                 
@@ -155,21 +161,34 @@ async def stream_live(objective: str) -> AsyncGenerator[str, None]:
             
             event_queue.put({"type": "DAG_COMPLETED"})
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             event_queue.put({"type": "ERROR", "error": str(e)})
 
     # Run the blocking pipeline in a background thread
     loop = asyncio.get_event_loop()
     loop.run_in_executor(None, run_pipeline)
 
+    last_mtime = 0
     while True:
         # Await queue items (we use a simple poll loop for asyncio compatibility with sync Queue)
         if not event_queue.empty():
             event = event_queue.get()
-            yield f"data: {json.dumps(event)}\n\n"
-            if event["type"] in ["DAG_COMPLETED", "ERROR"]:
+            try:
+                yield f"data: {json.dumps(event, default=str)}\n\n"
+            except Exception:
+                pass
+            if event.get("type") in ["DAG_COMPLETED", "ERROR"]:
                 break
         else:
-            await asyncio.sleep(0.1)
+            # Check for file changes if DAG is done or just periodically
+            js_path = os.path.abspath("./dist_game/game.js")
+            if os.path.exists(js_path):
+                mtime = os.path.getmtime(js_path)
+                if last_mtime != 0 and mtime > last_mtime:
+                    yield f"data: {json.dumps({'type': 'GAME_FILE_CHANGED'})}\n\n"
+                last_mtime = mtime
+            await asyncio.sleep(0.5)
 
 @app.get("/stream")
 async def stream_execution(mode: str = Query("demo"), objective: str = Query("Fix character jumping")):
@@ -218,6 +237,28 @@ def set_active_project(req: SetActiveProjectRequest):
     if success:
         return {"status": "success"}
     return {"status": "error", "message": "Project not found"}
+
+# --- Human-in-the-Loop Steering Endpoints ---
+from core.state import global_state
+
+@app.post("/api/pause")
+def pause_execution():
+    global_state.set_pause(True)
+    return {"status": "paused"}
+
+@app.post("/api/resume")
+def resume_execution():
+    global_state.set_pause(False)
+    return {"status": "resumed"}
+
+class ChatRequest(BaseModel):
+    node_id: str
+    message: str
+
+@app.post("/api/chat")
+def send_chat(req: ChatRequest):
+    global_state.add_chat_message(req.node_id, req.message)
+    return {"status": "success", "message_queued": True}
 
 if __name__ == "__main__":
     import uvicorn

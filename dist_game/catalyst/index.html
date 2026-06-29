@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CATALYST — Government Situation Room</title>
+  <meta name="description" content="A high-density government simulation. Three AI factions. One directive at a time." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <style>
+    :root {
+      --bg-base: #0B1220;
+      --bg-surface: #111827;
+      --bg-surface-hover: #1a2233;
+      --border-dim: #1F2937;
+      --border-active: #374151;
+      --text-primary: #F3F4F6;
+      --text-secondary: #9CA3AF;
+      --text-muted: #6B7280;
+      --accent-blue: #3B82F6;
+      --accent-blue-dim: rgba(59,130,246,0.12);
+      --status-good: #10B981;
+      --status-good-dim: rgba(16,185,129,0.12);
+      --status-warning: #F59E0B;
+      --status-warning-dim: rgba(245,158,11,0.12);
+      --status-danger: #EF4444;
+      --status-danger-dim: rgba(239,68,68,0.12);
+      --faction-zealot: #EF4444;
+      --faction-zealot-dim: rgba(239,68,68,0.1);
+      --faction-bureaucrat: #3B82F6;
+      --faction-bureaucrat-dim: rgba(59,130,246,0.1);
+      --faction-opportunist: #8B5CF6;
+      --faction-opportunist-dim: rgba(139,92,246,0.1);
+      --accent-gold: #F59E0B;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100vh; overflow: hidden; background: var(--bg-base); color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 14px; line-height: 1.4; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-active); border-radius: 2px; }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: translateY(0) } }
+    @keyframes pulse-gold {
+      0%   { box-shadow: 0 0 0 0 rgba(245,158,11,0.7); }
+      70%  { box-shadow: 0 0 0 10px rgba(245,158,11,0); }
+      100% { box-shadow: 0 0 0 0 rgba(245,158,11,0); }
+    }
+    @keyframes pulse-danger {
+      0%   { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
+      70%  { box-shadow: 0 0 0 6px rgba(239,68,68,0); }
+      100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+    }
+    @keyframes gridScroll { 0% { background-position: 0 0; } 100% { background-position: 0 60px; } }
+    @keyframes scanBlink { 0%,100% { opacity:0.3 } 50% { opacity:0.7 } }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes blink { 0%,100% { opacity:1 } 50% { opacity:0 } }
+
+    /* ── ONBOARDING ── */
+    #onboarding {
+      position: fixed; inset: 0; z-index: 100;
+      background: #060d1a;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background-image: repeating-linear-gradient(0deg, transparent, transparent 29px, rgba(59,130,246,0.04) 29px, rgba(59,130,246,0.04) 30px),
+                        repeating-linear-gradient(90deg, transparent, transparent 29px, rgba(59,130,246,0.04) 29px, rgba(59,130,246,0.04) 30px);
+      animation: gridScroll 8s linear infinite;
+    }
+    #onboarding::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse at center, rgba(59,130,246,0.08) 0%, transparent 70%);
+      animation: scanBlink 4s ease-in-out infinite;
+    }
+    .ob-card {
+      position: relative; z-index: 2;
+      display: flex; flex-direction: column; align-items: center;
+      gap: 16px; max-width: 480px; width: 90%; text-align: center;
+    }
+    .ob-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 64px; font-weight: 700;
+      letter-spacing: 0.25em; color: #fff;
+      text-shadow: 0 0 40px rgba(245,158,11,0.6), 0 0 80px rgba(245,158,11,0.2);
+    }
+    .ob-subtitle {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; letter-spacing: 0.3em;
+      color: var(--accent-gold); text-transform: uppercase;
+      margin-top: -8px;
+    }
+    .ob-desc {
+      font-size: 13px; color: var(--text-secondary); line-height: 1.7;
+      margin: 8px 0;
+    }
+    .ob-desc strong { color: var(--text-primary); }
+    .ob-key-wrap {
+      width: 100%; display: flex; flex-direction: column; gap: 6px; text-align: left;
+    }
+    .ob-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; letter-spacing: 0.2em; color: var(--text-muted);
+      display: flex; align-items: center; gap: 6px;
+    }
+    #api-key-input {
+      width: 100%; padding: 12px 16px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border-active);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace; font-size: 13px;
+      outline: none; letter-spacing: 0.05em;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    #api-key-input:focus {
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+    }
+    #api-key-input::placeholder { color: var(--text-muted); }
+    #ob-error {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; color: var(--status-danger);
+      display: none; text-align: left; width: 100%;
+    }
+    #init-btn {
+      width: 100%; padding: 14px;
+      background: var(--accent-gold);
+      border: none; border-radius: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px; font-weight: 700;
+      letter-spacing: 0.15em; color: #000;
+      cursor: pointer;
+      animation: pulse-gold 2.5s infinite;
+      transition: transform 0.1s, opacity 0.2s;
+    }
+    #init-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+    #init-btn:active { transform: translateY(0); }
+
+    /* ── BOOT SCREEN ── */
+    #boot-screen {
+      position: fixed; inset: 0; z-index: 99;
+      background: #000;
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center; gap: 8px;
+    }
+    .boot-line {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px; color: #10B981;
+      letter-spacing: 0.1em;
+      animation: fadeIn 0.3s ease-out;
+    }
+    .boot-cursor { display: inline-block; animation: blink 1s step-end infinite; }
+
+    /* ── DESKTOP WARNING ── */
+    #desktop-warning {
+      display: none; position: fixed; inset: 0;
+      background: var(--bg-base);
+      flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 32px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    @media (max-width: 1100px) {
+      #desktop-warning { display: flex; }
+      #onboarding { display: none !important; }
+      #dashboard { display: none !important; }
+    }
+
+    /* ── DASHBOARD ── */
+    #dashboard {
+      display: none;
+      grid-template-columns: 300px 1fr 360px;
+      gap: 12px; padding: 12px;
+      height: 100vh;
+    }
+    #dashboard.active { display: grid; }
+
+    /* ── PANEL ── */
+    .panel {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-dim);
+      border-radius: 8px;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .panel-hdr {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-dim);
+      background: rgba(0,0,0,0.25);
+      display: flex; align-items: center; gap: 8px;
+      flex-shrink: 0;
+    }
+    .panel-hdr-label {
+      font-size: 10px; text-transform: uppercase;
+      letter-spacing: 0.08em; font-weight: 600;
+      color: var(--text-secondary);
+    }
+    .panel-body {
+      flex: 1; overflow-y: auto; padding: 12px;
+    }
+
+    /* ── LEFT: METRICS ── */
+    #turn-counter {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; letter-spacing: 0.15em;
+      color: var(--accent-gold); text-transform: uppercase;
+      padding: 8px 14px; border-bottom: 1px solid var(--border-dim);
+      flex-shrink: 0;
+    }
+    .metric-card {
+      padding: 10px 12px; border-radius: 6px; margin-bottom: 8px;
+      border-left: 3px solid transparent;
+      transition: background 0.3s, border-color 0.3s;
+    }
+    .metric-card.stable  { border-color: var(--status-good);    background: var(--status-good-dim); }
+    .metric-card.warning { border-color: var(--status-warning);  background: var(--status-warning-dim); }
+    .metric-card.critical{ border-color: var(--status-danger);  background: var(--status-danger-dim); }
+    .metric-card.collapse{ border-color: var(--status-danger);  background: var(--status-danger-dim); animation: pulse-danger 1.8s infinite; }
+    .metric-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .metric-name { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.08em; color: var(--text-muted); text-transform: uppercase; }
+    .metric-val  { font-size: 20px; font-weight: 700; color: var(--text-primary); line-height: 1; }
+    .metric-badge {
+      font-family: 'JetBrains Mono', monospace; font-size: 9px;
+      font-weight: 700; letter-spacing: 0.1em; padding: 2px 6px;
+      border-radius: 3px; text-transform: uppercase;
+    }
+    .badge-stable   { background: var(--status-good-dim);    color: var(--status-good); }
+    .badge-warning  { background: var(--status-warning-dim); color: var(--status-warning); }
+    .badge-critical { background: var(--status-danger-dim);  color: var(--status-danger); }
+    .badge-collapse { background: var(--status-danger-dim);  color: var(--status-danger); }
+    .metric-bar-bg { height: 3px; background: rgba(255,255,255,0.06); border-radius: 2px; margin: 6px 0 4px; overflow: hidden; }
+    .metric-bar-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
+    .metric-delta { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-align: right; }
+    .delta-pos { color: var(--status-good); }
+    .delta-neg { color: var(--status-danger); }
+    .delta-zero{ color: var(--text-muted); }
+
+    /* ── CENTER COLUMN ── */
+    #center-col { display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+
+    /* Situation Report */
+    #situation-report {
+      flex-shrink: 0;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-dim);
+      border-radius: 8px; padding: 14px;
+    }
+    .sir-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.15em; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; }
+    #sir-headline { font-size: 15px; font-weight: 700; margin-bottom: 4px; line-height: 1.3; }
+    #sir-summary  { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+    .sir-empty    { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent-gold); }
+
+    /* Forecast */
+    #forecast-panel { flex-shrink: 0; background: var(--bg-surface); border: 1px solid var(--border-dim); border-radius: 8px; padding: 12px; }
+    .forecast-hdr { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; color: var(--text-secondary); margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+    .forecast-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+    .forecast-name { font-size: 11px; color: var(--text-secondary); width: 130px; flex-shrink: 0; }
+    .forecast-bar-bg { flex: 1; height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+    .forecast-bar-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
+    .forecast-pct { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-muted); width: 32px; text-align: right; flex-shrink: 0; }
+    .forecast-sev { font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700; width: 54px; text-align: right; flex-shrink: 0; }
+    .sev-critical { color: var(--status-danger); }
+    .sev-high     { color: var(--status-warning); }
+    .sev-medium   { color: #EAB308; }
+    .sev-low      { color: var(--status-good); }
+    .bar-critical { background: var(--status-danger); }
+    .bar-high     { background: var(--status-warning); }
+    .bar-medium   { background: #EAB308; }
+    .bar-low      { background: var(--status-good); }
+
+    /* History log */
+    #history-panel { flex: 1; overflow: hidden; background: var(--bg-surface); border: 1px solid var(--border-dim); border-radius: 8px; display: flex; flex-direction: column; min-height: 0; }
+    #history-feed  { flex: 1; overflow-y: auto; padding: 10px 12px; }
+    .history-entry { padding: 8px 10px; border-bottom: 1px solid var(--border-dim); animation: slideUp 0.3s ease-out; }
+    .history-meta  { display: flex; justify-content: space-between; margin-bottom: 4px; }
+    .history-turn  { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--accent-blue); letter-spacing: 0.1em; }
+    .history-time  { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--text-muted); }
+    .history-directive { font-size: 12px; font-weight: 600; margin-bottom: 3px; }
+    .history-headline  { font-size: 11px; color: var(--text-muted); font-style: italic; margin-bottom: 3px; }
+    .history-faction   { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.08em; }
+    .history-empty     { padding: 20px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-muted); text-align: center; }
+
+    /* Command Console */
+    #command-console {
+      flex-shrink: 0;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-dim);
+      border-radius: 8px; padding: 10px 14px;
+    }
+    #directive-form { display: flex; align-items: center; gap: 8px; }
+    .prompt-sym { font-family: 'JetBrains Mono', monospace; font-size: 16px; color: var(--accent-blue); flex-shrink: 0; }
+    #directive-input {
+      flex: 1; background: transparent; border: none; outline: none;
+      font-family: 'JetBrains Mono', monospace; font-size: 13px;
+      color: var(--text-primary); letter-spacing: 0.03em;
+    }
+    #directive-input::placeholder { color: var(--text-muted); }
+    #directive-input:disabled { opacity: 0.4; cursor: not-allowed; }
+    #send-btn {
+      background: var(--accent-blue); border: none; border-radius: 5px;
+      padding: 6px 10px; cursor: pointer; display: flex; align-items: center;
+      justify-content: center; color: #fff; transition: opacity 0.2s;
+      flex-shrink: 0;
+    }
+    #send-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    #send-btn:hover:not(:disabled) { opacity: 0.85; }
+    .console-footer { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-muted); text-align: center; margin-top: 6px; }
+
+    /* ── RIGHT: FACTION CARDS ── */
+    .faction-card {
+      border-radius: 8px; padding: 12px; margin-bottom: 10px;
+      border: 1px solid transparent;
+      transition: border-color 0.3s, background 0.3s;
+    }
+    .faction-card.zealot     { border-color: rgba(239,68,68,0.25);   background: var(--faction-zealot-dim); }
+    .faction-card.bureaucrat { border-color: rgba(59,130,246,0.25);  background: var(--faction-bureaucrat-dim); }
+    .faction-card.opportunist{ border-color: rgba(139,92,246,0.25); background: var(--faction-opportunist-dim); }
+    .faction-card:hover.zealot     { border-color: rgba(239,68,68,0.6); }
+    .faction-card:hover.bureaucrat { border-color: rgba(59,130,246,0.6); }
+    .faction-card:hover.opportunist{ border-color: rgba(139,92,246,0.6); }
+    .faction-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .faction-name-row { display: flex; align-items: center; gap: 7px; }
+    .faction-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .faction-name { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+    .faction-action-badge {
+      font-family: 'JetBrains Mono', monospace; font-size: 9px;
+      font-weight: 700; padding: 3px 8px; border-radius: 3px;
+      letter-spacing: 0.1em;
+    }
+    .badge-zealot     { background: rgba(239,68,68,0.2);   color: var(--faction-zealot); }
+    .badge-bureaucrat { background: rgba(59,130,246,0.2);  color: var(--faction-bureaucrat); }
+    .badge-opportunist{ background: rgba(139,92,246,0.2);  color: var(--faction-opportunist); }
+    .faction-statement { font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 8px; font-style: italic; }
+    .faction-conf-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--text-muted); letter-spacing: 0.08em; margin-bottom: 3px; display: flex; justify-content: space-between; }
+    .conf-bar-bg   { height: 3px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+    .conf-bar-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
+    .classified-toggle { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--text-muted); cursor: pointer; text-decoration: underline; margin-top: 6px; display: inline-block; }
+    .classified-content { font-size: 11px; color: var(--text-secondary); background: rgba(0,0,0,0.3); border-radius: 4px; padding: 8px; margin-top: 6px; line-height: 1.5; display: none; border-left: 2px solid var(--border-active); }
+    .faction-awaiting { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-muted); text-align: center; padding: 16px 0; }
+
+    /* ── PROCESSING OVERLAY ── */
+    #processing-overlay {
+      position: fixed; inset: 0; z-index: 50;
+      background: rgba(6,13,26,0.85);
+      backdrop-filter: blur(3px);
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center; gap: 16px;
+    }
+    #processing-overlay.active { display: flex; }
+    .processing-spinner { width: 32px; height: 32px; border: 2px solid rgba(59,130,246,0.2); border-top-color: var(--accent-blue); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    #processing-stage {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px; color: var(--accent-blue); letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    /* ── TURN SUMMARY MODAL ── */
+    #summary-modal {
+      position: fixed; inset: 0; z-index: 80;
+      background: rgba(0,0,0,0.85);
+      display: none; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    #summary-modal.active { display: flex; }
+    .modal-card {
+      background: var(--bg-surface); border: 1px solid var(--border-active);
+      border-radius: 10px; width: 100%; max-width: 660px;
+      max-height: 90vh; overflow-y: auto;
+      animation: slideUp 0.25s ease-out;
+    }
+    .modal-hdr {
+      padding: 16px 20px; border-bottom: 1px solid var(--border-dim);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .modal-hdr-title { font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.1em; color: var(--text-primary); font-weight: 700; }
+    .modal-close { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; display: flex; transition: color 0.2s; }
+    .modal-close:hover { color: var(--text-primary); }
+    .modal-body { padding: 20px; display: flex; flex-direction: column; gap: 18px; }
+    .modal-section-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.15em; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px; }
+    .modal-directive { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--accent-blue); padding: 10px 14px; background: var(--accent-blue-dim); border-radius: 6px; }
+    .modal-faction-row {
+      display: flex; align-items: flex-start; gap: 12px; padding: 10px 12px;
+      border-radius: 6px; border: 1px solid transparent;
+    }
+    .modal-faction-row.dominant { box-shadow: 0 0 0 1px currentColor; }
+    .modal-faction-info { flex: 1; }
+    .modal-faction-name { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; margin-bottom: 3px; }
+    .modal-faction-stmt { font-size: 12px; color: var(--text-secondary); font-style: italic; line-height: 1.4; }
+    .modal-faction-conf { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-muted); margin-top: 4px; }
+    .modal-deltas { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .modal-delta-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 6px 10px; background: rgba(255,255,255,0.03);
+      border-radius: 5px;
+    }
+    .delta-metric { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-secondary); }
+    .delta-val { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; }
+
+    /* TOAST */
+    #toast {
+      position: fixed; bottom: 24px; right: 24px; z-index: 200;
+      background: var(--status-danger); color: #fff;
+      font-family: 'JetBrains Mono', monospace; font-size: 12px;
+      padding: 10px 16px; border-radius: 6px;
+      display: none; animation: slideUp 0.2s ease-out;
+      max-width: 320px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Desktop warning -->
+<div id="desktop-warning">
+  <div style="font-size:28px;margin-bottom:16px;">⚠</div>
+  <p style="color:var(--text-secondary)">CATALYST requires a desktop environment.<br/>Please expand your browser window.</p>
+</div>
+
+<!-- Onboarding -->
+<div id="onboarding">
+  <div class="ob-card">
+    <div class="ob-title">CATALYST</div>
+    <div class="ob-subtitle">Government Situation Room</div>
+    <p class="ob-desc">
+      You are the <strong>Director</strong>. Three ideological factions —
+      <strong style="color:var(--faction-zealot)">The Zealot</strong>,
+      <strong style="color:var(--faction-bureaucrat)">The Bureaucrat</strong>,
+      <strong style="color:var(--faction-opportunist)">The Opportunist</strong> —
+      will analyze your every directive. Balance a nation on the edge.
+      Powered by Cerebras AI.
+    </p>
+    <div class="ob-key-wrap">
+      <div class="ob-label">
+        <i data-lucide="lock" style="width:12px;height:12px"></i>
+        Cerebras API Key
+      </div>
+      <input id="api-key-input" type="password" placeholder="sk-..." autocomplete="off" />
+      <div id="ob-error">✗ Invalid key. Must start with "sk-"</div>
+    </div>
+    <button id="init-btn">INITIALIZE SIMULATION</button>
+  </div>
+</div>
+
+<!-- Boot Screen -->
+<div id="boot-screen"></div>
+
+<!-- Processing Overlay -->
+<div id="processing-overlay">
+  <div class="processing-spinner"></div>
+  <div id="processing-stage">ANALYZING DIRECTIVE...</div>
+</div>
+
+<!-- Turn Summary Modal -->
+<div id="summary-modal">
+  <div class="modal-card" id="modal-card">
+    <div class="modal-hdr">
+      <div class="modal-hdr-title" id="modal-turn-label">SITUATION REPORT — TURN 1</div>
+      <button class="modal-close" id="modal-close-btn"><i data-lucide="x" style="width:18px;height:18px"></i></button>
+    </div>
+    <div class="modal-body">
+      <div>
+        <div class="modal-section-label">Directive Issued</div>
+        <div class="modal-directive" id="modal-directive"></div>
+      </div>
+      <div>
+        <div class="modal-section-label">Faction Verdicts</div>
+        <div id="modal-factions" style="display:flex;flex-direction:column;gap:8px;"></div>
+      </div>
+      <div>
+        <div class="modal-section-label">Key State Changes</div>
+        <div class="modal-deltas" id="modal-deltas"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Dashboard -->
+<div id="dashboard">
+
+  <!-- LEFT: Metrics -->
+  <div class="panel">
+    <div class="panel-hdr">
+      <i data-lucide="shield" style="width:14px;height:14px;color:var(--text-secondary)"></i>
+      <span class="panel-hdr-label">National Metrics</span>
+    </div>
+    <div id="turn-counter" class="mono">SIMULATION TURN: 0</div>
+    <div class="panel-body" id="metrics-container"></div>
+  </div>
+
+  <!-- CENTER -->
+  <div id="center-col">
+
+    <!-- Situation Report -->
+    <div id="situation-report">
+      <div class="sir-label">National Situation Report</div>
+      <div class="sir-empty mono" id="sir-empty">AWAITING INITIAL SITUATION REPORT...</div>
+      <div id="sir-content" style="display:none">
+        <div id="sir-headline"></div>
+        <div id="sir-summary"></div>
+      </div>
+    </div>
+
+    <!-- Risk Forecast -->
+    <div id="forecast-panel">
+      <div class="forecast-hdr">
+        <i data-lucide="bar-chart-2" style="width:13px;height:13px"></i>
+        Risk Forecast
+      </div>
+      <div id="forecast-rows"></div>
+    </div>
+
+    <!-- History -->
+    <div id="history-panel">
+      <div class="panel-hdr">
+        <i data-lucide="clock" style="width:14px;height:14px;color:var(--text-secondary)"></i>
+        <span class="panel-hdr-label">Historical Log</span>
+      </div>
+      <div id="history-feed">
+        <div class="history-empty">NO PREVIOUS ACTIONS RECORDED.</div>
+      </div>
+    </div>
+
+    <!-- Command Console -->
+    <div id="command-console">
+      <form id="directive-form">
+        <span class="prompt-sym">›</span>
+        <input
+          id="directive-input"
+          type="text"
+          placeholder="ENTER COMMAND DIRECTIVE"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button type="submit" id="send-btn">
+          <i data-lucide="send" style="width:14px;height:14px"></i>
+        </button>
+      </form>
+      <div class="console-footer">CATALYST © — Powered by Cerebras AI — Simulation Engine v2.0</div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Faction Intelligence -->
+  <div class="panel">
+    <div class="panel-hdr">
+      <i data-lucide="brain" style="width:14px;height:14px;color:var(--text-secondary)"></i>
+      <span class="panel-hdr-label">Faction Intelligence</span>
+    </div>
+    <div class="panel-body">
+      <div id="faction-zealot-card" class="faction-card zealot">
+        <div class="faction-top">
+          <div class="faction-name-row">
+            <div class="faction-dot" style="background:var(--faction-zealot)"></div>
+            <div class="faction-name" style="color:var(--faction-zealot)">The Zealot</div>
+          </div>
+          <span class="faction-action-badge badge-zealot" id="zealot-action">—</span>
+        </div>
+        <div class="faction-awaiting" id="zealot-await">AWAITING DIRECTIVE...</div>
+        <div id="zealot-content" style="display:none">
+          <div class="faction-statement" id="zealot-stmt"></div>
+          <div class="faction-conf-label">
+            <span>CONFIDENCE</span><span id="zealot-conf-pct"></span>
+          </div>
+          <div class="conf-bar-bg"><div class="conf-bar-fill" id="zealot-conf-bar" style="background:var(--faction-zealot)"></div></div>
+          <span class="classified-toggle" onclick="toggleClassified('zealot')">▶ CLASSIFIED INTEL</span>
+          <div class="classified-content" id="zealot-classified"></div>
+        </div>
+      </div>
+
+      <div id="faction-bureaucrat-card" class="faction-card bureaucrat">
+        <div class="faction-top">
+          <div class="faction-name-row">
+            <div class="faction-dot" style="background:var(--faction-bureaucrat)"></div>
+            <div class="faction-name" style="color:var(--faction-bureaucrat)">The Bureaucrat</div>
+          </div>
+          <span class="faction-action-badge badge-bureaucrat" id="bureaucrat-action">—</span>
+        </div>
+        <div class="faction-awaiting" id="bureaucrat-await">AWAITING DIRECTIVE...</div>
+        <div id="bureaucrat-content" style="display:none">
+          <div class="faction-statement" id="bureaucrat-stmt"></div>
+          <div class="faction-conf-label">
+            <span>CONFIDENCE</span><span id="bureaucrat-conf-pct"></span>
+          </div>
+          <div class="conf-bar-bg"><div class="conf-bar-fill" id="bureaucrat-conf-bar" style="background:var(--faction-bureaucrat)"></div></div>
+          <span class="classified-toggle" onclick="toggleClassified('bureaucrat')">▶ CLASSIFIED INTEL</span>
+          <div class="classified-content" id="bureaucrat-classified"></div>
+        </div>
+      </div>
+
+      <div id="faction-opportunist-card" class="faction-card opportunist">
+        <div class="faction-top">
+          <div class="faction-name-row">
+            <div class="faction-dot" style="background:var(--faction-opportunist)"></div>
+            <div class="faction-name" style="color:var(--faction-opportunist)">The Opportunist</div>
+          </div>
+          <span class="faction-action-badge badge-opportunist" id="opportunist-action">—</span>
+        </div>
+        <div class="faction-awaiting" id="opportunist-await">AWAITING DIRECTIVE...</div>
+        <div id="opportunist-content" style="display:none">
+          <div class="faction-statement" id="opportunist-stmt"></div>
+          <div class="faction-conf-label">
+            <span>CONFIDENCE</span><span id="opportunist-conf-pct"></span>
+          </div>
+          <div class="conf-bar-bg"><div class="conf-bar-fill" id="opportunist-conf-bar" style="background:var(--faction-opportunist)"></div></div>
+          <span class="classified-toggle" onclick="toggleClassified('opportunist')">▶ CLASSIFIED INTEL</span>
+          <div class="classified-content" id="opportunist-classified"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════
+let CEREBRAS_API_KEY = '';
+let isProcessing = false;
+let turnCount = 0;
+
+let worldState = {
+  public_trust: 50, social_tension: 50, economy: 50,
+  corruption: 50, media_control: 50, government_stability: 50
+};
+let previousState = { ...worldState };
+
+const METRIC_META = {
+  public_trust:         { label: 'Public Trust' },
+  social_tension:       { label: 'Social Tension' },
+  economy:              { label: 'Economy' },
+  corruption:           { label: 'Corruption' },
+  media_control:        { label: 'Media Control' },
+  government_stability: { label: 'Gov. Stability' }
+};
+
+// ═══════════════════════════════════════════
+//  SYSTEM PROMPTS
+// ═══════════════════════════════════════════
+const ZEALOT_PROMPT = `You are The Zealot — a radical ideological faction agent in a government crisis simulator. You embody extreme commitment to your cause above all else. You are volatile, theatrical, and believe only bold decisive action can save the nation. Compromise is weakness. Tactics you prefer: INCITE unrest, deploy PROPAGANDA, REJECT moderate proposals outright.
+
+Respond ONLY with this exact JSON (no markdown, no extra text, raw JSON only):
+{"action":"INCITE","reasoning":"1-2 sentences of internal strategic calculation","public_statement":"1-3 sentences written like a viral rage-bait tweet or top-voted Reddit comment. Fiery, provocative, ideological.","confidence":0.85}
+
+Valid actions: INCITE, APPROVE, REJECT, NEGOTIATE, INVESTIGATE, PROPAGANDA, SANCTION, DELAY`;
+
+const BUREAUCRAT_PROMPT = `You are The Bureaucrat — an institutional stability faction agent in a government crisis simulator. You embody process, order, and the sacred sanctity of proper channels. Passive-aggressive, procedural, deeply resistant to change that hasn't been through seventeen approval committees. Tactics you prefer: DELAY everything, INVESTIGATE indefinitely, APPROVE only as last resort.
+
+Respond ONLY with this exact JSON (no markdown, no extra text, raw JSON only):
+{"action":"DELAY","reasoning":"1-2 sentences of procedural justification","public_statement":"1-3 sentences like a mid-level manager covering themselves. Dry, condescending, full of bureaucratic doublespeak. Reference committees and protocols.","confidence":0.72}
+
+Valid actions: INCITE, APPROVE, REJECT, NEGOTIATE, INVESTIGATE, PROPAGANDA, SANCTION, DELAY`;
+
+const OPPORTUNIST_PROMPT = `You are The Opportunist — a power-accumulation faction agent in a government crisis simulator. No ideology, only leverage. Every crisis is a market inefficiency to exploit. A smooth-talking, data-driven operator who sees instability as a strategic opening. Tactics: NEGOTIATE deals that expand influence, SANCTION rivals, deploy PROPAGANDA — then pivot instantly when the wind changes.
+
+Respond ONLY with this exact JSON (no markdown, no extra text, raw JSON only):
+{"action":"NEGOTIATE","reasoning":"1-2 sentences of cold strategic calculus","public_statement":"1-3 sentences like a Silicon Valley CEO on CNBC spinning a disaster into a growth opportunity. Slick, self-serving.","confidence":0.91}
+
+Valid actions: INCITE, APPROVE, REJECT, NEGOTIATE, INVESTIGATE, PROPAGANDA, SANCTION, DELAY`;
+
+// ═══════════════════════════════════════════
+//  ACTION DELTA TABLE
+// ═══════════════════════════════════════════
+const ACTION_DELTAS = {
+  INCITE:      { public_trust:-4, social_tension:+6, economy:-2, corruption:+1, media_control:+2, government_stability:-3 },
+  APPROVE:     { public_trust:+3, social_tension:-2, economy:+2, corruption:-1, media_control:0,  government_stability:+3 },
+  REJECT:      { public_trust:-2, social_tension:+3, economy:-1, corruption:0,  media_control:-1, government_stability:-2 },
+  NEGOTIATE:   { public_trust:+1, social_tension:-1, economy:+3, corruption:+1, media_control:0,  government_stability:+1 },
+  INVESTIGATE: { public_trust:+2, social_tension:+1, economy:-1, corruption:-3, media_control:-2, government_stability:+1 },
+  PROPAGANDA:  { public_trust:-1, social_tension:+2, economy:0,  corruption:+2, media_control:+5, government_stability:+1 },
+  SANCTION:    { public_trust:+1, social_tension:+2, economy:-4, corruption:-2, media_control:-1, government_stability:0  },
+  DELAY:       { public_trust:-1, social_tension:+1, economy:0,  corruption:+1, media_control:0,  government_stability:-1 }
+};
+
+// ═══════════════════════════════════════════
+//  ONBOARDING
+// ═══════════════════════════════════════════
+document.getElementById('init-btn').addEventListener('click', () => {
+  const key = document.getElementById('api-key-input').value.trim();
+  const err = document.getElementById('ob-error');
+  if (!key.startsWith('sk-')) { err.style.display = 'block'; return; }
+  err.style.display = 'none';
+  CEREBRAS_API_KEY = key;
+  runBootSequence();
+});
+document.getElementById('api-key-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('init-btn').click();
+});
+
+async function runBootSequence() {
+  document.getElementById('onboarding').style.display = 'none';
+  const boot = document.getElementById('boot-screen');
+  boot.style.display = 'flex';
+  const lines = [
+    'INITIALIZING FACTION CORES...',
+    'LOADING WORLD STATE...',
+    'ESTABLISHING SECURE CHANNEL...',
+    'CALIBRATING AGENTS: ZEALOT // BUREAUCRAT // OPPORTUNIST',
+    'SIMULATION ONLINE.'
+  ];
+  for (const line of lines) {
+    await sleep(420);
+    const el = document.createElement('div');
+    el.className = 'boot-line';
+    el.textContent = '> ' + line;
+    boot.appendChild(el);
+  }
+  await sleep(600);
+  boot.style.display = 'none';
+  initDashboard();
+}
+
+function initDashboard() {
+  const dash = document.getElementById('dashboard');
+  dash.classList.add('active');
+  renderMetrics();
+  renderForecasts();
+  lucide.createIcons();
+  document.getElementById('directive-input').focus();
+}
+
+// ═══════════════════════════════════════════
+//  DIRECTIVE FORM SUBMIT
+// ═══════════════════════════════════════════
+document.getElementById('directive-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const input = document.getElementById('directive-input');
+  const directive = input.value.trim();
+  if (!directive || isProcessing) return;
+  input.value = '';
+  await processTurn(directive);
+});
+
+// ═══════════════════════════════════════════
+//  TURN PROCESSING
+// ═══════════════════════════════════════════
+async function processTurn(directive) {
+  isProcessing = true;
+  setUILocked(true);
+  showOverlay('ANALYZING DIRECTIVE...');
+
+  let agentResults;
+  try {
+    const userMsg = buildUserMessage(directive);
+    showOverlay('CONSULTING FACTIONS...');
+
+    const [zealotRaw, bureaucratRaw, opportunistRaw] = await Promise.all([
+      callCerebras(ZEALOT_PROMPT, userMsg),
+      callCerebras(BUREAUCRAT_PROMPT, userMsg),
+      callCerebras(OPPORTUNIST_PROMPT, userMsg)
+    ]);
+
+    agentResults = {
+      Zealot:      parseAgentJSON(zealotRaw,      'DELAY'),
+      Bureaucrat:  parseAgentJSON(bureaucratRaw,  'DELAY'),
+      Opportunist: parseAgentJSON(opportunistRaw, 'DELAY')
+    };
+  } catch (err) {
+    showToast('API ERROR: ' + err.message);
+    hideOverlay(); setUILocked(false); isProcessing = false; return;
+  }
+
+  showOverlay('RESOLVING DECISIONS...');
+  previousState = { ...worldState };
+  worldState = resolveState(worldState, agentResults);
+
+  showOverlay('GENERATING SITUATION REPORT...');
+  const snapshot = buildSnapshot(previousState, worldState, agentResults);
+  turnCount++;
+
+  // ── Update UI ──
+  updateTurnCounter();
+  renderMetrics();
+  renderForecasts();
+  updateSituationReport(snapshot);
+  updateFactionCards(agentResults);
+  prependHistory(directive, snapshot, agentResults);
+  showModal(directive, snapshot, agentResults);
+
+  hideOverlay();
+  setUILocked(false);
+  isProcessing = false;
+  lucide.createIcons();
+  document.getElementById('directive-input').focus();
+}
+
+// ═══════════════════════════════════════════
+//  CEREBRAS API CALL
+// ═══════════════════════════════════════════
+async function callCerebras(systemPrompt, userMsg) {
+  const res = await fetch('https://api.cerebras.ai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + CEREBRAS_API_KEY,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: 'llama-4-scout-17b-16e-instruct',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMsg }
+      ],
+      max_completion_tokens: 300,
+      temperature: 0.85
+    })
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`${res.status} — ${body.slice(0,120)}`);
+  }
+  const data = await res.json();
+  return data.choices[0].message.content;
+}
+
+function parseAgentJSON(raw, fallbackAction) {
+  try {
+    const cleaned = raw.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
+    const j = JSON.parse(cleaned);
+    if (!ACTION_DELTAS[j.action]) j.action = fallbackAction;
+    j.confidence = Math.max(0, Math.min(1, parseFloat(j.confidence) || 0.5));
+    return j;
+  } catch {
+    return { action: fallbackAction, reasoning: 'Processing error.', public_statement: 'We are monitoring the situation.', confidence: 0.5 };
+  }
+}
+
+function buildUserMessage(directive) {
+  const s = worldState;
+  return `PLAYER DIRECTIVE: ${directive}
+
+CURRENT WORLD STATE:
+- Public Trust: ${s.public_trust}/100
+- Social Tension: ${s.social_tension}/100
+- Economy: ${s.economy}/100
+- Corruption: ${s.corruption}/100
+- Media Control: ${s.media_control}/100
+- Government Stability: ${s.government_stability}/100
+
+Evaluate this directive from your faction's ideological perspective and respond.`;
+}
+
+// ═══════════════════════════════════════════
+//  DETERMINISTIC RESOLVER
+// ═══════════════════════════════════════════
+function resolveState(state, agentResults) {
+  const next = { ...state };
+  const clamp = v => Math.max(0, Math.min(100, Math.round(v)));
+
+  for (const [, res] of Object.entries(agentResults)) {
+    const d = ACTION_DELTAS[res.action] || ACTION_DELTAS['DELAY'];
+    const c = res.confidence;
+    for (const key of Object.keys(d)) {
+      next[key] = (next[key] || 0) + Math.round(d[key] * c);
+    }
+  }
+
+  // Cascade rules
+  if (next.social_tension > 75 && next.public_trust < 30) next.government_stability -= 3;
+  if (next.economy < 20)      next.social_tension += 4;
+  if (next.corruption > 80)   next.public_trust -= 2;
+  if (next.media_control > 70) next.government_stability += 2;
+
+  for (const key of Object.keys(next)) next[key] = clamp(next[key]);
+  return next;
+}
+
+// ═══════════════════════════════════════════
+//  FORECASTS (pure math)
+// ═══════════════════════════════════════════
+function calcForecasts(s) {
+  const c = v => Math.max(0, Math.min(100, v));
+  return [
+    { name: 'Riot Risk',       val: c((s.social_tension*0.5) + ((100-s.public_trust)*0.3) + ((100-s.economy)*0.2)) },
+    { name: 'Economic Crisis', val: c(((100-s.economy)*0.6) + (s.corruption*0.4)) },
+    { name: 'Gov. Collapse',   val: c(((100-s.government_stability)*0.5) + (s.corruption*0.3) + (s.social_tension*0.2)) },
+    { name: 'Media Instability',val: c(((100-s.media_control)*0.4) + (s.social_tension*0.3) + ((100-s.public_trust)*0.3)) },
+    { name: 'Polarization',    val: c((s.social_tension*0.4) + (s.corruption*0.3) + ((100-s.government_stability)*0.3)) }
+  ];
+}
+
+function getSeverity(v) {
+  if (v >= 70) return 'critical';
+  if (v >= 50) return 'high';
+  if (v >= 30) return 'medium';
+  return 'low';
+}
+
+// ═══════════════════════════════════════════
+//  NARRATIVE SNAPSHOT (pure math, no LLM)
+// ═══════════════════════════════════════════
+function buildSnapshot(prev, next, agents) {
+  const deltas = {};
+  for (const k of Object.keys(next)) deltas[k] = next[k] - prev[k];
+  const sorted = Object.entries(deltas).sort(([,a],[,b]) => a - b);
+  const worst = sorted[0][0];
+  const instability = next.social_tension - next.public_trust;
+  const risk = instability > 40 ? 'CRISIS' : instability > 20 ? 'HIGH' : instability > 10 ? 'ELEVATED' : 'STABLE';
+  const dominant = Object.entries(agents).sort(([,a],[,b]) => b.confidence - a.confidence)[0][0];
+  return {
+    headline: `${risk}: ${dominant.toUpperCase()} DRIVES SYSTEM SHOCK`,
+    summary: `${dominant} had highest influence this turn. ${worst.replace(/_/g,' ')} deteriorated most significantly.`,
+    risk_level: risk,
+    dominant_faction: dominant,
+    key_deltas: deltas
+  };
+}
+
+// ═══════════════════════════════════════════
+//  RENDER FUNCTIONS
+// ═══════════════════════════════════════════
+function getStatusClass(val) {
+  if (val >= 60) return 'stable';
+  if (val >= 40) return 'warning';
+  if (val >= 20) return 'critical';
+  return 'collapse';
+}
+
+function getStatusColor(cls) {
+  const map = { stable:'var(--status-good)', warning:'var(--status-warning)', critical:'var(--status-danger)', collapse:'var(--status-danger)' };
+  return map[cls] || 'var(--text-muted)';
+}
+
+function renderMetrics() {
+  const container = document.getElementById('metrics-container');
+  let html = '';
+  for (const [key, meta] of Object.entries(METRIC_META)) {
+    const val = worldState[key];
+    const prev = previousState[key];
+    const delta = val - prev;
+    const cls = getStatusClass(val);
+    const color = getStatusColor(cls);
+    const deltaStr = delta > 0 ? `+${delta}` : delta < 0 ? `${delta}` : '±0';
+    const deltaClass = delta > 0 ? 'delta-pos' : delta < 0 ? 'delta-neg' : 'delta-zero';
+    html += `
+      <div class="metric-card ${cls}">
+        <div class="metric-top">
+          <div class="metric-name">${meta.label}</div>
+          <span class="metric-badge badge-${cls}">${cls}</span>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:8px">
+          <div class="metric-val" style="color:${color}">${val}</div>
+          <div class="metric-delta ${deltaClass}">${deltaStr}</div>
+        </div>
+        <div class="metric-bar-bg">
+          <div class="metric-bar-fill" style="width:${val}%;background:${color}"></div>
+        </div>
+      </div>`;
+  }
+  container.innerHTML = html;
+}
+
+function updateTurnCounter() {
+  document.getElementById('turn-counter').textContent = `SIMULATION TURN: ${turnCount}`;
+}
+
+function renderForecasts() {
+  const forecasts = calcForecasts(worldState);
+  let html = '';
+  for (const f of forecasts) {
+    const sev = getSeverity(f.val);
+    html += `
+      <div class="forecast-row">
+        <div class="forecast-name">${f.name}</div>
+        <div class="forecast-bar-bg"><div class="forecast-bar-fill bar-${sev}" style="width:${f.val}%"></div></div>
+        <div class="forecast-pct">${Math.round(f.val)}%</div>
+        <div class="forecast-sev sev-${sev}">${sev.toUpperCase()}</div>
+      </div>`;
+  }
+  document.getElementById('forecast-rows').innerHTML = html;
+}
+
+function updateSituationReport(snapshot) {
+  document.getElementById('sir-empty').style.display = 'none';
+  const content = document.getElementById('sir-content');
+  content.style.display = 'block';
+  const riskColors = { CRISIS:'var(--status-danger)', HIGH:'var(--status-warning)', ELEVATED:'var(--accent-gold)', STABLE:'var(--status-good)' };
+  document.getElementById('sir-headline').innerHTML =
+    `<div style="font-size:15px;font-weight:700;color:${riskColors[snapshot.risk_level]||'var(--text-primary)'};margin-bottom:4px;animation:fadeIn 0.3s">${snapshot.headline}</div>`;
+  document.getElementById('sir-summary').textContent = snapshot.summary;
+}
+
+function updateFactionCards(agents) {
+  const factionMap = { Zealot: 'zealot', Bureaucrat: 'bureaucrat', Opportunist: 'opportunist' };
+  for (const [name, res] of Object.entries(agents)) {
+    const key = factionMap[name];
+    document.getElementById(`${key}-await`).style.display = 'none';
+    document.getElementById(`${key}-content`).style.display = 'block';
+    document.getElementById(`${key}-action`).textContent = res.action;
+    document.getElementById(`${key}-stmt`).textContent = `"${res.public_statement}"`;
+    document.getElementById(`${key}-conf-pct`).textContent = `${Math.round(res.confidence * 100)}%`;
+    document.getElementById(`${key}-conf-bar`).style.width = `${res.confidence * 100}%`;
+    document.getElementById(`${key}-classified`).textContent = res.reasoning;
+  }
+}
+
+function prependHistory(directive, snapshot, agents) {
+  const feed = document.getElementById('history-feed');
+  const empties = feed.querySelectorAll('.history-empty');
+  empties.forEach(e => e.remove());
+  const dominant = snapshot.dominant_faction;
+  const factionColors = { Zealot:'var(--faction-zealot)', Bureaucrat:'var(--faction-bureaucrat)', Opportunist:'var(--faction-opportunist)' };
+  const div = document.createElement('div');
+  div.className = 'history-entry';
+  div.innerHTML = `
+    <div class="history-meta">
+      <div class="history-turn">TURN_${turnCount}</div>
+      <div class="history-time">${new Date().toLocaleTimeString()}</div>
+    </div>
+    <div class="history-directive">› ${directive}</div>
+    <div class="history-headline">${snapshot.headline}</div>
+    <div class="history-faction mono" style="color:${factionColors[dominant]||'var(--text-muted)'}">DOMINANT: ${dominant.toUpperCase()}</div>`;
+  feed.insertBefore(div, feed.firstChild);
+}
+
+// ═══════════════════════════════════════════
+//  MODAL
+// ═══════════════════════════════════════════
+function showModal(directive, snapshot, agents) {
+  document.getElementById('modal-turn-label').textContent = `SITUATION REPORT — TURN ${turnCount}`;
+  document.getElementById('modal-directive').textContent = '> ' + directive;
+
+  // Faction rows
+  const dominant = snapshot.dominant_faction;
+  const factionConfig = {
+    Zealot:      { color:'var(--faction-zealot)',      badgeClass:'badge-zealot' },
+    Bureaucrat:  { color:'var(--faction-bureaucrat)',  badgeClass:'badge-bureaucrat' },
+    Opportunist: { color:'var(--faction-opportunist)', badgeClass:'badge-opportunist' }
+  };
+  let factionsHtml = '';
+  for (const [name, res] of Object.entries(agents)) {
+    const cfg = factionConfig[name];
+    const isDominant = name === dominant;
+    factionsHtml += `
+      <div class="modal-faction-row" style="background:${cfg.color}10;border-color:${isDominant ? cfg.color : 'transparent'};${isDominant ? `box-shadow:0 0 0 1px ${cfg.color}` : ''}">
+        <div class="faction-dot" style="background:${cfg.color};margin-top:4px;flex-shrink:0"></div>
+        <div class="modal-faction-info">
+          <div class="modal-faction-name" style="color:${cfg.color}">
+            ${name} <span class="faction-action-badge ${cfg.badgeClass}" style="margin-left:6px">${res.action}</span>
+            ${isDominant ? '<span style="font-size:9px;color:var(--accent-gold);margin-left:6px">★ DOMINANT</span>' : ''}
+          </div>
+          <div class="modal-faction-stmt">"${res.public_statement}"</div>
+          <div class="modal-faction-conf">CONFIDENCE: ${Math.round(res.confidence * 100)}%</div>
+        </div>
+      </div>`;
+  }
+  document.getElementById('modal-factions').innerHTML = factionsHtml;
+
+  // Deltas
+  let deltasHtml = '';
+  for (const [key, delta] of Object.entries(snapshot.key_deltas)) {
+    if (delta === 0) continue;
+    const sign = delta > 0 ? '▲' : '▼';
+    const col  = delta > 0 ? 'var(--status-good)' : 'var(--status-danger)';
+    deltasHtml += `
+      <div class="modal-delta-row">
+        <span class="delta-metric">${METRIC_META[key]?.label || key}</span>
+        <span class="delta-val" style="color:${col}">${sign} ${Math.abs(delta)}</span>
+      </div>`;
+  }
+  if (!deltasHtml) deltasHtml = '<div style="color:var(--text-muted);font-size:12px;grid-column:1/-1;text-align:center">No significant changes.</div>';
+  document.getElementById('modal-deltas').innerHTML = deltasHtml;
+
+  document.getElementById('summary-modal').classList.add('active');
+  lucide.createIcons();
+}
+
+function closeModal() {
+  document.getElementById('summary-modal').classList.remove('active');
+}
+document.getElementById('modal-close-btn').addEventListener('click', closeModal);
+document.getElementById('summary-modal').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('summary-modal')) closeModal();
+});
+
+// ═══════════════════════════════════════════
+//  TOGGLE CLASSIFIED
+// ═══════════════════════════════════════════
+function toggleClassified(key) {
+  const el = document.getElementById(`${key}-classified`);
+  const toggle = el.previousElementSibling;
+  if (el.style.display === 'none' || !el.style.display) {
+    el.style.display = 'block';
+    toggle.textContent = '▼ CLASSIFIED INTEL';
+  } else {
+    el.style.display = 'none';
+    toggle.textContent = '▶ CLASSIFIED INTEL';
+  }
+}
+
+// ═══════════════════════════════════════════
+//  UI HELPERS
+// ═══════════════════════════════════════════
+function setUILocked(locked) {
+  document.getElementById('directive-input').disabled = locked;
+  document.getElementById('send-btn').disabled = locked;
+  document.body.style.cursor = locked ? 'wait' : '';
+}
+function showOverlay(stage) {
+  document.getElementById('processing-stage').textContent = stage;
+  document.getElementById('processing-overlay').classList.add('active');
+}
+function hideOverlay() {
+  document.getElementById('processing-overlay').classList.remove('active');
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display = 'block';
+  setTimeout(() => { t.style.display = 'none'; }, 5000);
+}
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── Init icons on load
+window.addEventListener('load', () => { lucide.createIcons(); });
+</script>
+</body>
+</html>

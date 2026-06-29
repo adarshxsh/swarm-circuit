@@ -9,7 +9,13 @@ const WorkerNode = ({ data }: any) => {
   const isRunning = data.status === 'RUNNING';
   const isCompleted = data.status === 'SUCCESS';
   const isFailed = data.status === 'FAILED';
-  
+  const isIdle = data.status === 'IDLE';
+
+  const borderColor = isRunning ? 'var(--accent-color)'
+    : isCompleted ? 'var(--status-completed)'
+    : isFailed ? 'var(--status-failed)'
+    : isIdle ? '#555'
+    : 'var(--border-color)';
   return (
     <div className={clsx(
       "panel",
@@ -18,10 +24,10 @@ const WorkerNode = ({ data }: any) => {
       padding: '12px', 
       borderRadius: '8px', 
       width: '192px', 
-      border: `2px solid ${isRunning ? 'var(--accent-color)' : isCompleted ? 'var(--status-completed)' : isFailed ? 'var(--status-failed)' : 'var(--border-color)'}`,
-      opacity: data.status === 'PENDING' ? 0.8 : 1,
-      transition: 'all 0.3s ease',
-      boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)'
+      border: `2px solid ${borderColor}`,
+      opacity: data.status === 'PENDING' ? 0.5 : isIdle ? 0.7 : 1,
+      transition: 'all 0.4s ease',
+      boxShadow: isRunning ? '0 0 18px 2px var(--accent-color)' : '0 10px 25px -5px rgba(0, 0, 0, 0.5)'
     }}>
       
       <Handle type="target" position={Position.Top} className="w-2 h-2 !bg-border-highlight" />
@@ -45,8 +51,9 @@ const WorkerNode = ({ data }: any) => {
           {isCompleted ? <CheckCircle2 size={12} color="var(--status-completed)" /> : 
            isRunning ? <PlayCircle size={12} color="var(--accent-color)" /> : 
            isFailed ? <XCircle size={12} color="var(--status-failed)" /> :
+           isIdle ? <CheckCircle2 size={12} color="#555" /> :
            <Clock size={12} />}
-          <span>{data.status}</span>
+          <span style={{ color: isIdle ? '#888' : 'inherit' }}>{isIdle ? 'idle' : data.status}</span>
         </div>
         {data.duration && <span>{data.duration}ms</span>}
       </div>
@@ -55,6 +62,8 @@ const WorkerNode = ({ data }: any) => {
     </div>
   );
 };
+
+
 
 const nodeTypes = {
   worker: WorkerNode
@@ -87,16 +96,18 @@ export default function ExecutionGraph({ events, onNodeClick }: { events: any[],
         let status = 'PENDING';
         let duration = null;
         
-        const nodeEvents = events.filter(e => e.node_id === nodeId);
-        if (nodeEvents.some(e => e.type === 'NODE_COMPLETED')) {
+        const nodeEvents = events.filter(e => e.worker === role);
+        if (nodeEvents.some(e => e.status === 'idle')) {
+          status = 'IDLE';
+        } else if (nodeEvents.some(e => e.status === 'completed' || e.status === 'SUCCESS')) {
           status = 'SUCCESS';
-        } else if (nodeEvents.some(e => e.type === 'NODE_FAILED')) {
+        } else if (nodeEvents.some(e => e.status === 'failed' || e.status === 'ERROR')) {
           status = 'FAILED';
-        } else if (nodeEvents.some(e => e.type === 'NODE_STARTED')) {
+        } else if (nodeEvents.some(e => e.status === 'working' || e.status === 'RUNNING' || e.status === 'building' || e.status === 'analyzing' || e.status === 'starting')) {
           status = 'RUNNING';
         }
 
-        const completedEvent = nodeEvents.find(e => e.type === 'NODE_COMPLETED');
+        const completedEvent = nodeEvents.find(e => e.status === 'completed' || e.status === 'SUCCESS');
         if (completedEvent && completedEvent.artifact) {
             duration = completedEvent.artifact.execution_time_ms;
         }
