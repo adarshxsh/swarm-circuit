@@ -8,10 +8,46 @@ import History from './pages/History';
 import MergeCenter from './pages/MergeCenter';
 import Play from './pages/Play';
 import Games from './pages/Games';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const SIDEBAR_W = 200;
 const COLLAPSED_W = 56;
+
+function ServerStatusOverlay() {
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    const handler = () => setShow(true);
+    window.addEventListener('backend-error', handler);
+    return () => window.removeEventListener('backend-error', handler);
+  }, []);
+
+  if (!show) return null;
+
+  return (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+      background: 'rgba(0,0,0,0.8)', zIndex: 9999,
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      backdropFilter: 'blur(4px)'
+    }}>
+      <h2 style={{ color: 'var(--status-failed)', fontSize: '24px', marginBottom: '16px' }}>Server Not Deployed</h2>
+      <p style={{ color: 'var(--text-secondary)', maxWidth: '500px', textAlign: 'center', lineHeight: 1.5, marginBottom: '24px' }}>
+        The backend server for this application is not currently reachable. This usually means it's not deployed. To run the full application with the backend, please clone the repository and run it locally.
+      </p>
+      <a href="https://github.com/adarshxsh/swarm-circuit" target="_blank" rel="noreferrer" style={{
+        background: 'var(--accent-color)', color: '#000', padding: '10px 20px', borderRadius: '6px', textDecoration: 'none', fontWeight: 600
+      }}>
+        Clone Repository
+      </a>
+      <button onClick={() => setShow(false)} style={{
+        background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '10px 20px', borderRadius: '6px', marginTop: '16px', cursor: 'pointer'
+      }}>
+        Dismiss
+      </button>
+    </div>
+  );
+}
 
 function AppLayout() {
   const location = useLocation();
@@ -142,6 +178,7 @@ function AppLayout() {
           <Route path="/play/:gameId"  element={<Play />} />
         </Routes>
       </div>
+      <ServerStatusOverlay />
     </div>
   );
 }
