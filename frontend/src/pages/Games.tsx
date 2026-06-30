@@ -16,8 +16,8 @@ const GAMES = [
     built_by: 'SwarmCircuit DAG Pipeline',
     tech: ['Vanilla JS', 'Cerebras API', 'Parallel fetch()', 'Deterministic Resolver'],
     factions: [
-      { name: 'The Zealot',      color: '#EF4444', desc: 'Radical ideological commitment' },
-      { name: 'The Bureaucrat',  color: '#3B82F6', desc: 'Institutional order & process' },
+      { name: 'The Zealot', color: '#EF4444', desc: 'Radical ideological commitment' },
+      { name: 'The Bureaucrat', color: '#3B82F6', desc: 'Institutional order & process' },
       { name: 'The Opportunist', color: '#8B5CF6', desc: 'Pure self-interest & chaos exploitation' }
     ]
   }
@@ -162,8 +162,8 @@ export default function Games() {
                 <div style={{ display: 'flex', gap: '16px', marginTop: '16px' }}>
                   {[
                     { icon: Brain, label: 'AI Agents', val: game.agent_count, color: game.accent },
-                    { icon: Zap,   label: 'Inference', val: '1,000+ tok/s', color: 'var(--status-completed)' },
-                    { icon: Shield,label: 'State Engine', val: 'Deterministic', color: 'var(--accent-color)' }
+                    { icon: Zap, label: 'Inference', val: '1,000+ tok/s', color: 'var(--status-completed)' },
+                    { icon: Shield, label: 'State Engine', val: 'Deterministic', color: 'var(--accent-color)' }
                   ].map((stat) => (
                     <div key={stat.label} style={{
                       flex: 1, padding: '10px 12px', borderRadius: '6px',

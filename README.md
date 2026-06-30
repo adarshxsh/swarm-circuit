@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>⬡ SwarmCircuit v2</h1>
+  <h1>⬡ SwarmCircuit </h1>
   <p><strong>Autonomous AI Game Development Studio Powered by Specialized Agent Fleets</strong></p>
   
   <p>

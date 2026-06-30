@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { GitPullRequest, Check, X, MessageSquare, AlertCircle, Eye, GitCommit, FileCode2 } from 'lucide-react';
+import { GitPullRequest, Check, X, MessageSquare, AlertCircle, Eye, GitCommit, FileCode2, Bot, CheckCircle2 } from 'lucide-react';
 
 export default function MergeCenter() {
   const [status, setStatus] = useState<'pending' | 'approved' | 'rejected'>('pending');
@@ -30,7 +30,7 @@ export default function MergeCenter() {
         <p style={{ color: 'var(--text-secondary)', fontSize: '16px', maxWidth: '400px', textAlign: 'center', lineHeight: '1.5' }}>This tab is a visual mockup for the SwarmCircuit vision. We are currently focusing backend development on the core Workspace Execution Graph and Memory Systems.</p>
       </div>
 
-      
+
       {/* Top Header */}
       <header style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)' }}>
         <div>
@@ -39,7 +39,7 @@ export default function MergeCenter() {
             <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>#14</span>
           </div>
           <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ 
+            <div style={{
               display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 8px', borderRadius: '16px', fontSize: '11px', fontWeight: 600,
               background: status === 'pending' ? 'var(--bg-tertiary)' : status === 'approved' ? 'rgba(23, 201, 100, 0.1)' : 'rgba(243, 24, 76, 0.1)',
               color: status === 'pending' ? 'var(--text-secondary)' : status === 'approved' ? 'var(--status-completed)' : 'var(--status-failed)'
@@ -50,7 +50,7 @@ export default function MergeCenter() {
             <span><span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>Gameplay Engineer</span> wants to merge 1 commit into <code style={{ background: 'var(--bg-tertiary)', padding: '2px 4px', borderRadius: '4px' }}>main</code></span>
           </div>
         </div>
-        
+
         {status === 'pending' && (
           <div style={{ display: 'flex', gap: '12px' }}>
             <button onClick={() => setStatus('rejected')} style={{ background: 'var(--bg-primary)', border: '1px solid var(--status-failed)', color: 'var(--status-failed)', padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -68,7 +68,7 @@ export default function MergeCenter() {
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <div style={{ flex: 1, padding: '32px', overflowY: 'auto' }}>
-          
+
           <div className="panel" style={{ borderRadius: '8px', overflow: 'hidden', marginBottom: '24px' }}>
             <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -106,7 +106,7 @@ export default function MergeCenter() {
                 <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>1 hour ago</div>
               </div>
               <div style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                I have reviewed the changes submitted by Gameplay Engineer. The implementation for double jumping is correct and follows our GDScript style guidelines. The <code>jumps_left</code> variable is correctly decremented. 
+                I have reviewed the changes submitted by Gameplay Engineer. The implementation for double jumping is correct and follows our GDScript style guidelines. The <code>jumps_left</code> variable is correctly decremented.
                 <br /><br />
                 <span style={{ color: 'var(--status-completed)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <CheckCircle2 size={14} /> Passes QA automated tests. Ready for merge.

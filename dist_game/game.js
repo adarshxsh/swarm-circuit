@@ -1,129 +1,116 @@
-const canvas = document.querySelector('canvas');
-const ctx = canvas.getContext('2d');
+(function() {
+    const canvas = document.querySelector('canvas');
+    const ctx = canvas.getContext('2d');
 
-const STATE = {
-    metrics: {
-        public_trust: 50,
-        social_tension: 50,
-        economy: 50,
-        corruption: 50,
-        media_control: 50,
-        government_stability: 50
-    },
-    risks: {
-        riot: 0,
-        economic: 0,
-        collapse: 0,
-        media: 0,
-        polarization: 0
-    },
-    turn: 1,
-    logs: ["SYSTEM INITIALIZED: SITUATION ROOM ACTIVE"],
-    isGameOver: false,
-    gameOverReason: ""
-};
+    const state = {
+        metrics: {
+            public_trust: 50,
+            social_tension: 50,
+            economy: 50,
+            corruption: 50,
+            media_control: 50,
+            government_stability: 50
+        },
+        factions: [
+            { id: 'zealot', name: 'Zealots', color: '#EF4444', weight: 0.3, x: 0, y: 0 },
+            { id: 'bureaucrat', name: 'Bureaucrats', color: '#3B82F6', weight: 0.4, x: 0, y: 0 },
+            { id: 'oligarch', name: 'Oligarchs', color: '#F59E0B', weight: 0.3, x: 0, y: 0 }
+        ],
+        directives: [
+            { text: "Implement Austerity", effect: { economy: 5, social_tension: 10, public_trust: -5 } },
+            { text: "Expand Social Welfare", effect: { economy: -10, social_tension: -10, public_trust: 10 } },
+            { text: "Crackdown on Dissent", effect: { media_control: 15, government_stability: 5, public_trust: -15 } },
+            { text: "Anti-Corruption Purge", effect: { corruption: -15, government_stability: -10, public_trust: 10 } }
+        ],
+        logs: ["Welcome to CATALYST Situation Room. Awaiting Directive..."],
+        lastUpdate: 0
+    };
 
-const COLORS = {
-    bg: '#0a0a0a',
-    text: '#00ff41',
-    accent: '#008f11',
-    danger: '#ff0000',
-    warning: '#ffff00',
-    panel: '#1a1a1a'
-};
+    const cascadeRules = [
+        { condition: (s) => s.social_tension > 75 && s.public_trust < 30, effect: { government_stability: -0.1 }, label: "Cascade Instability" },
+        { condition: (s) => s.economy < 20, effect: { social_tension: 0.1 }, label: "Economic Desperation" },
+        { condition: (s) => s.corruption > 80, effect: { public_trust: -0.1 }, label: "Endemic Corruption" },
+        { condition: (s) => s.media_control > 70, effect: { government_stability: 0.1 }, label: "Regime Stabilization" }
+    ];
 
-function calculateRisks() {
-    const m = STATE.metrics;
-    STATE.risks.riot = (m.social_tension * 0.6) + (100 - m.public_trust) * 0.4;
-    STATE.risks.economic = (100 - m.economy) * 0.7 + (m.corruption * 0.3);
-    STATE.risks.collapse = (100 - m.government_stability) * 0.8 + (m.social_tension * 0.2);
-    STATE.risks.media = (100 - m.media_control) * 0.5 + (100 - m.public_trust) * 0.5;
-    STATE.risks.polarization = (m.social_tension * 0.5) + (m.corruption * 0.5);
-}
+    function onResize() {
+        state.factions.forEach((f, i) => {
+            f.x = canvas.width * (0.2 + i * 0.3);
+            f.y = canvas.height * 0.6;
+        });
+    }
 
-function checkGameOver() {
-    for (let key in STATE.metrics) {
-        if (STATE.metrics[key] <= 0) {
-            STATE.isGameOver = true;
-            STATE.gameOverReason = `CRITICAL COLLAPSE: ${key.toUpperCase()} REACHED ZERO`;
-            return;
+    window.addEventListener('resize', onResize);
+    onResize();
+
+    function applyDirective(dir) {
+        for (let key in dir.effect) {
+            state.metrics[key] = Math.max(0, Math.min(100, state.metrics[key] + dir.effect[key]));
         }
-    }
-    if (STATE.metrics.government_stability < 20) {
-        STATE.isGameOver = true;
-        STATE.gameOverReason = "GOVERNMENT COLLAPSED DUE TO INSTABILITY";
-    }
-}
-
-function simulateTurn() {
-    if (STATE.isGameOver) return;
-
-    // Deterministic drift
-    for (let key in STATE.metrics) {
-        STATE.metrics[key] += (Math.random() * 4 - 2);
-        STATE.metrics[key] = Math.max(0, Math.min(100, STATE.metrics[key]));
+        state.logs.push(`Directive: ${dir.text} executed.`);
+        if (state.logs.length > 5) state.logs.shift();
     }
 
-    STATE.turn++;
-    calculateRisks();
-    checkGameOver();
-    STATE.logs.unshift(`Turn ${STATE.turn}: State updated. Stability at ${STATE.metrics.government_stability.toFixed(1)}%`);
-    if (STATE.logs.length > 10) STATE.logs.pop();
-}
+    function update(time) {
+        const dt = time - state.lastUpdate;
+        state.lastUpdate = time;
 
-function draw() {
-    ctx.fillStyle = COLORS.bg;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+        cascadeRules.forEach(rule => {
+            if (rule.condition(state.metrics)) {
+                for (let key in rule.effect) {
+                    state.metrics[key] = Math.max(0, Math.min(100, state.metrics[key] + rule.effect[key]));
+                }
+            }
+        });
 
-    const margin = canvas.width * 0.05;
-    const colWidth = (canvas.width - (margin * 3)) / 2;
-    const rowHeight = canvas.height * 0.12;
-
-    // Header
-    ctx.fillStyle = COLORS.text;
-    ctx.font = `bold ${canvas.height * 0.04}px monospace`;
-    ctx.fillText("CATALYST: GOVERNMENT SITUATION ROOM", margin, margin + (canvas.height * 0.04));
-    ctx.font = `${canvas.height * 0.02}px monospace`;
-    ctx.fillText(`TURN: ${STATE.turn} | STATUS: ${STATE.isGameOver ? 'TERMINATED' : 'ACTIVE'}`, margin, margin + (canvas.height * 0.07));
-
-    // Metrics Panel
-    ctx.fillStyle = COLORS.panel;
-    ctx.fillRect(margin, canvas.height * 0.1, colWidth, canvas.height * 0.6);
-    ctx.strokeStyle = COLORS.accent;
-    ctx.strokeRect(margin, canvas.height * 0.1, colWidth, canvas.height * 0.6);
-
-    ctx.fillStyle = COLORS.text;
-    ctx.font = `${canvas.height * 0.025}px monospace`;
-    ctx.fillText("SYSTEM METRICS", margin + 20, canvas.height * 0.14);
-
-    let i = 0;
-    for (let key in STATE.metrics) {
-        const val = STATE.metrics[key];
-        const y = canvas.height * 0.2 + (i * rowHeight);
-        const barWidth = colWidth * 0.7;
-        
-        ctx.fillStyle = COLORS.text;
-        ctx.fillText(key.replace('_', ' ').toUpperCase(), margin + 20, y);
-        
-        ctx.fillStyle = '#333';
-        ctx.fillRect(margin + 20, y + 10, barWidth, 10);
-        
-        ctx.fillStyle = val < 30 ? COLORS.danger : (val < 60 ? COLORS.warning : COLORS.text);
-        ctx.fillRect(margin + 20, y + 10, barWidth * (val / 100), 10);
-        
-        ctx.fillStyle = COLORS.text;
-        ctx.fillText(`${val.toFixed(1)}%`, margin + 20 + barWidth + 10, y + 18);
-        i++;
+        draw();
+        requestAnimationFrame(update);
     }
 
-    // Risks Panel
-    ctx.fillStyle = COLORS.panel;
-    ctx.fillRect(margin * 2 + colWidth, canvas.height * 0.1, colWidth, canvas.height * 0.6);
-    ctx.strokeStyle = COLORS.accent;
-    ctx.strokeRect(margin * 2 + colWidth, canvas.height * 0.1, colWidth, canvas.height * 0.6);
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    ctx.fillStyle = COLORS.text;
-    ctx.fillText("RISK VECTORS", margin * 2 + colWidth + 20, canvas.height * 0.14);
+        // Draw Metrics
+        const metricKeys = Object.keys(state.metrics);
+        const barWidth = canvas.width * 0.1;
+        const barHeight = canvas.height * 0.2;
+        const startX = canvas.width * 0.05;
+        const startY = canvas.height * 0.1;
 
-    let j = 0;
-    for (let key
+        metricKeys.forEach((key, i) => {
+            const x = startX + i * (barWidth + canvas.width * 0.02);
+            const val = state.metrics[key];
+            
+            ctx.fillStyle = '#334155';
+            ctx.fillRect(x, startY, barWidth, barHeight);
+            ctx.fillStyle = '#60a5fa';
+            ctx.fillRect(x, startY + barHeight * (1 - val/100), barWidth, barHeight * (val/100));
+            
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = `${canvas.width * 0.01}px monospace`;
+            ctx.fillText(key.replace('_', ' '), x, startY - 10);
+            ctx.fillText(`${Math.round(val)}%`, x, startY + barHeight + 20);
+        });
+
+        // Draw Factions
+        state.factions.forEach(f => {
+            ctx.beginPath();
+            ctx.arc(f.x, f.y, canvas.width * 0.04, 0, Math.PI * 2);
+            ctx.fillStyle = f.color;
+            ctx.fill();
+            ctx.fillStyle = '#fff';
+            ctx.textAlign = 'center';
+            ctx.fillText(f.name, f.x, f.y + canvas.width * 0.06);
+        });
+
+        // Draw UI / Directives
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = `${canvas.width * 0.015}px monospace`;
+        ctx.fillText("SITUATION ROOM: SELECT DIRECTIVE", canvas.width * 0.05, canvas.height * 0.8);
+
+        state.directives.forEach((dir, i) => {
+            const x = canvas.width * 0.05;
+            const y = canvas.height * 0.8

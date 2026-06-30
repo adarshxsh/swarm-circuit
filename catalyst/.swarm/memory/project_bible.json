@@ -1,0 +1,23 @@
+{
+  "creativeDirection": {
+    "corePillars": []
+  },
+  "system_notes": [],
+  "learned_mechanics": [
+    {
+      "last_successful_build": "2026-06-29 22:12:09.997638",
+      "qa_notes": "Playtest verified stable game loop.",
+      "framerate_stable": true
+    },
+    {
+      "last_successful_build": "2026-06-29 22:35:24.170476",
+      "qa_notes": "Playtest verified stable game loop.",
+      "framerate_stable": true
+    },
+    {
+      "last_successful_build": "2026-06-29 22:35:45.382707",
+      "qa_notes": "Playtest verified stable game loop.",
+      "framerate_stable": true
+    }
+  ]
+}

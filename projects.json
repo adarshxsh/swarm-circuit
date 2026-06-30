@@ -23,7 +23,13 @@
       "name": "HH",
       "engine": "Godot 4.x",
       "path": "/Users/adarsh/Projects/personal/swarm-circuit/hh"
+    },
+    {
+      "id": "catalyst",
+      "name": "catalyst",
+      "engine": "Godot 4.x",
+      "path": "/Users/adarsh/Projects/personal/swarm-circuit/catalyst"
     }
   ],
-  "active_project_id": "mock_godot_game"
+  "active_project_id": "catalyst"
 }

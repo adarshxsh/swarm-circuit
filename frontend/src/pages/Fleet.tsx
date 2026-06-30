@@ -3,7 +3,7 @@ import { Bot, Search, BrainCircuit, Activity, Cpu, Code2, Paintbrush, AudioLines
 
 export default function Fleet() {
   const [searchTerm, setSearchTerm] = useState('');
-  
+
   const agents = [
     { name: "Technical Architect", category: "Engineering", icon: BrainCircuit, engine: "Godot Expert", model: "Gemma 4-31b", confidence: 98, capabilities: ["Scene Trees", "Data Architecture", "Performance Tuning"] },
     { name: "Gameplay Engineer", category: "Engineering", icon: Code2, engine: "Godot Expert", model: "Gemma 4-31b", confidence: 94, capabilities: ["Movement Physics", "Combat Logic", "State Machines"] },
@@ -23,7 +23,7 @@ export default function Fleet() {
         <p style={{ color: 'var(--text-secondary)', fontSize: '16px', maxWidth: '400px', textAlign: 'center', lineHeight: '1.5' }}>This tab is a visual mockup for the SwarmCircuit vision. We are currently focusing backend development on the core Workspace Execution Graph and Memory Systems.</p>
       </div>
 
-      
+
       {/* Top Header */}
       <header style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
@@ -32,12 +32,12 @@ export default function Fleet() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '8px 12px', width: '300px' }}>
           <Search size={16} color="var(--text-muted)" style={{ marginRight: '8px' }} />
-          <input 
-            type="text" 
-            placeholder="Search agents by role or capability..." 
+          <input
+            type="text"
+            placeholder="Search agents by role or capability..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', width: '100%', outline: 'none', fontSize: '13px' }} 
+            style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', width: '100%', outline: 'none', fontSize: '13px' }}
           />
         </div>
       </header>
@@ -46,7 +46,7 @@ export default function Fleet() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
           {filteredAgents.map((agent, i) => (
             <div key={i} className="panel" style={{ borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column', transition: 'transform 0.2s', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-              
+
               <div style={{ padding: '20px', display: 'flex', alignItems: 'flex-start', gap: '16px', borderBottom: '1px solid var(--border-color)' }}>
                 <div style={{ background: 'var(--bg-tertiary)', padding: '12px', borderRadius: '12px', color: 'var(--accent-color)' }}>
                   <agent.icon size={24} />
